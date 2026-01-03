@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const { USER_ROLES } = require('../utils/constants');
+const paginatePlugin = require("../plugins/paginate");
 
 const userSchema = new mongoose.Schema(
     {
@@ -67,6 +68,9 @@ userSchema.methods.toJSON = function () {
     delete userObject.__v;
     return userObject;
 };
+
+userSchema.plugin(paginatePlugin);
+
 
 const User = mongoose.model('User', userSchema);
 
