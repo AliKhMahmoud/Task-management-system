@@ -34,19 +34,60 @@ class UserController {
     };
 
     async getAllUsers(req,res){
-
+        const page = +req.query.page||1;
+        const users = await User.paginate({page,limit:2});
+        if(!users){
+            res.status(404);
+            throw new Error("There is no users to show");
+            }
+        return res.status(200).json({
+            success: true,
+            data: users
+        });
     }
     
     async findUserById(req,res){
-
+        const {id} = req.params;
+        const user = await User.findUserById(id);
+        if(!user){
+            res.status(404);
+            throw new Error("User not found");
+        }
+        return res.status(200).json({
+            suucess:true,
+            data:user
+        });
     }
     
     async deleteUser(req,res){
-
+        const {id} = req.params;
+        const user = await User.findByIdAndDelete(id);
+        if(!user){
+            res.status(404);
+            throw new Error("User not found");
+        }
+        return res.status(201).json({
+            success:true,
+            message:"User deleted successfully",
+        });
     }
 
     async updateUser(req,res){
-
+        const {id} = req.params;
+        const {name , role} = req.body;
+        const user = await User.findById(id);
+        if(!user){
+            res.status(404);
+            throw new Error("User not found");
+        }
+        user.name = name??user.name;
+        user.role = role??user.role;
+        await user.save();
+        return res.status(201).json({
+            success:true,
+            message:"User updated successfully",
+            user:user,
+        });
     }
 
 
