@@ -2,44 +2,42 @@ const express = require('express');
 const router = express.Router();
 const TaskController = require("../controllers/task.controller");
 const asyncHandler = require('../utils/asyncHandler');
+const { requireAuth, authorize } = require('../middlewares/auth.middleware');
+const validate = require('../middlewares/validation.middleware');
+const { addTaskByManagerValidator, updateTaskByManagerValidator, validateMongoId } = require('../validation/task.validation');
+const { USER_ROLES } = require('../utils/constants');
 const { apiLimiter } = require('../middlewares/rateLimit.middleware');
 
-// TODO: Add note routes here
-// Example:
+router.use(requireAuth);
+router.use(apiLimiter);
 
-// router.get('/',
-//     [
-//         apiLimiter
-//     ],
-//     asyncHandler(TaskController.getAllTask)
-// );
+router.get('/', asyncHandler(TaskController.getAllTask));
 
-// router.get('/:id', 
-//     [
-//         apiLimiter
-//     ],
-//     asyncHandler(TaskController.findTaskById)
-// );
+router.get('/:id', 
+    validateMongoId('id'),
+    validate,
+    asyncHandler(TaskController.findTaskById)
+);
 
-// router.post('/', 
-//     [
-//         apiLimiter
-//     ],
-//     asyncHandler(TaskController.addTaskByManager)
-// );
+router.post('/', 
+    authorize(USER_ROLES.MANAGER),
+    addTaskByManagerValidator,
+    validate,
+    asyncHandler(TaskController.addTaskByManager)
+);
 
-// router.put('/:id', 
-//     [
-//         apiLimiter
-//     ],
-//     asyncHandler(TaskController.updateTaskByManager)
-// );
+router.put('/:id', 
+    validateMongoId('id'),
+    updateTaskByManagerValidator,
+    validate,
+    asyncHandler(TaskController.updateTaskByManager)
+);
 
-// router.delete('/:id', 
-//     [
-//         apiLimiter
-//     ],
-//     asyncHandler(TaskController.removeTaskByManager)
-// );
+router.delete('/:id', 
+    authorize(USER_ROLES.MANAGER),
+    validateMongoId('id'),
+    validate,
+    asyncHandler(TaskController.removeTaskByManager)
+);
 
 module.exports = router;
