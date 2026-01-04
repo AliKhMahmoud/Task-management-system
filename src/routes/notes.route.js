@@ -1,44 +1,42 @@
 const express = require('express');
 const asyncHandler = require('../utils/asyncHandler');
 const { apiLimiter } = require('../middlewares/rateLimit.middleware');
+const { requireAuth } = require('../middlewares/auth.middleware');
+const validate = require('../middlewares/validation.middleware');
+const { createNoteValidator, updateNoteValidator, validateMongoId } = require('../validation/note.validation');
+const noteController = require("../controllers/notes.controller");
 const router = express.Router();
 
-// TODO: Add note routes here
-// Example:
+router.use(requireAuth);
+router.use(apiLimiter);
 
-// router.get('/',
-//     [
-//         apiLimiter
-//     ],
-//     asyncHandler(noteController.getAllNotes)
-// );
+router.get('/',
+    asyncHandler(noteController.getAllNotes)
+);
 
-// router.post('/', 
-//     [
-//         apiLimiter
-//     ],
-//     asyncHandler(noteController.createNote)
-// );
+router.post('/',
+    createNoteValidator,
+    validate,
+    asyncHandler(noteController.createNote)
+);
 
-// router.get('/:id', 
-//     [
-//         apiLimiter
-//     ],
-//     asyncHandler(noteController.getNoteById)
-// );
+router.get('/:id',
+    validateMongoId('id'),
+    validate,
+    asyncHandler(noteController.getNoteById)
+);
 
-// router.put('/:id', 
-//     [
-//         apiLimiter
-//     ],
-//     asyncHandler(noteController.updateNote)
-// );
+router.put('/:id',
+    validateMongoId('id'),
+    updateNoteValidator,
+    validate,
+    asyncHandler(noteController.updateNote)
+);
 
-// router.delete('/:id', 
-//     [
-//         apiLimiter
-//     ],
-//     asyncHandler(noteController.deleteNote)
-// );
+router.delete('/:id',
+    validateMongoId('id'),
+    validate,
+    asyncHandler(noteController.deleteNote)
+);
 
 module.exports = router;
