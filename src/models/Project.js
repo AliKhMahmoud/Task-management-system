@@ -53,13 +53,11 @@ const projectSchema = new mongoose.Schema(
     }
 );
 
-// فهرس للبحث السريع
 projectSchema.index({ manager: 1 });
 projectSchema.index({ status: 1 });
 projectSchema.index({ startDate: 1, endDate: 1 });
 projectSchema.index({ members: 1 });
 
-// Virtual لحساب عدد المهام
 projectSchema.virtual('tasks', {
     ref: 'Task',
     localField: '_id',

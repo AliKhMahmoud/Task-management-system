@@ -27,7 +27,6 @@ const noteSchema = new mongoose.Schema(
     }
 );
 
-// فهرس للبحث السريع
 noteSchema.index({ task: 1 });
 noteSchema.index({ createdBy: 1 });
 noteSchema.index({ createdAt: -1 });

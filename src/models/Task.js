@@ -59,21 +59,21 @@ const taskSchema = new mongoose.Schema(
     }
 );
 
-// فهرس للبحث السريع
+
 taskSchema.index({ project: 1 });
 taskSchema.index({ assignedTo: 1 });
 taskSchema.index({ status: 1 });
 taskSchema.index({ priority: 1 });
 taskSchema.index({ dueDate: 1 });
 
-// Virtual للملاحظات
+
 taskSchema.virtual('notes', {
     ref: 'Note',
     localField: '_id',
     foreignField: 'task',
 });
 
-// Middleware لتحديث تاريخ الإنجاز عند تغيير الحالة
+
 taskSchema.pre('save', function (next) {
     if (this.isModified('status')) {
         if (this.status === TASK_STATUS.COMPLETED && !this.completedAt) {

@@ -1,61 +1,76 @@
 const express = require('express');
-const projectController = require("../controllers/projects.controller");
+const projectController = require('../controllers/projects.controller');
 const asyncHandler = require('../utils/asyncHandler');
+const { requireAuth, requireRole } = require('../middlewares/auth.middleware');
 const { apiLimiter } = require('../middlewares/rateLimit.middleware');
+const { Roles } = require('../utils/constants');
 
 const router = express.Router();
 
-// TODO: Add note routes here
-// Example:
 
-// router.post('/',
-//     [
-//         apiLimiter
-//     ],
-//     asyncHandler(projectController.createProjectByManager)
-// );
+router.use(requireAuth);
 
-// router.get('/',
-//     [
-//         apiLimiter
-//     ],
-//     asyncHandler(projectController.getAllProjects)
-// );
+router.post(
+  '/',
+  requireRole([Roles.MANAGER]),
+  apiLimiter,
+  asyncHandler(projectController.createProjectByManager)
+);
 
-// router.get('/:id',
-//     [
-//         apiLimiter
-//     ],
-//     asyncHandler(projectController.getProjectById)
-// );
+router.get(
+  '/',
+  apiLimiter,
+  asyncHandler(projectController.getAllProjects)
+);
 
-// router.put('/:id',
-//     [
-//         apiLimiter
-//     ],
-//     asyncHandler(projectController.updateProjectByManager)
-// );
+router.get(
+  '/:id',
+  apiLimiter,
+  asyncHandler(projectController.getProjectById)
+);
 
-// router.delete('/:id',
-//     [
-//         apiLimiter
-//     ],
-//     asyncHandler(projectController.removeProjectByManager)
-// );
+router.put(
+  '/:id',
+  requireRole([Roles.MANAGER]),
+  apiLimiter,
+  asyncHandler(projectController.updateProjectByManager)
+);
 
-// router.post('/addMember',
-//     [
-//         apiLimiter
-//     ],
-//     asyncHandler(projectController.addMemberByManager)
-// );
+router.patch(
+  '/:id',
+  requireRole([Roles.MANAGER]),
+  apiLimiter,
+  asyncHandler(projectController.updateProjectByManager)
+);
 
-// router.delete('/addMember',
-//     [
-//         apiLimiter
-//     ],
-//     asyncHandler(projectController.removeMemberByManager)
-// );
+router.delete(
+  '/:id',
+  requireRole([Roles.MANAGER]),
+  apiLimiter,
+  asyncHandler(projectController.removeProjectByManager)
+);
 
+-
+router.post(
+  '/:id/members',
+  requireRole([Roles.MANAGER]),
+  apiLimiter,
+  asyncHandler(projectController.addMemberByManager)
+);
+
+router.delete(
+  '/:id/members/:memberId',
+  requireRole([Roles.MANAGER]),
+  apiLimiter,
+  asyncHandler(projectController.removeMemberByManager)
+);
+
+
+router.post(
+  '/:projectId/tasks',
+  requireRole([Roles.MANAGER]),
+  apiLimiter,
+  asyncHandler(projectController.createTask)
+);
 
 module.exports = router;
