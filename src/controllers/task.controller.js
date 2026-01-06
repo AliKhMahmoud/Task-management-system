@@ -48,8 +48,9 @@ class TaskController {
 
         // Authorization check for Team Member
         if (req.user.role !== USER_ROLES.MANAGER) {
-            const isAssignedTo = task.assignedTo && task.assignedTo._id.toString() === req.user.id;
-            const isAssignedBy = task.assignedBy && task.assignedBy._id.toString() === req.user.id;
+            const userId = req.user.id.toString();
+            const isAssignedTo = task.assignedTo && task.assignedTo._id.toString() === userId;
+            const isAssignedBy = task.assignedBy && task.assignedBy._id.toString() === userId;
 
             if (!isAssignedTo && !isAssignedBy) {
                 res.status(403);
@@ -109,8 +110,9 @@ class TaskController {
             });
         } else {
             // Team Member can only update status
-            const isAssignedTo = task.assignedTo.toString() === id;
-            const isAssignedBy = task.assignedBy.toString() === id;
+            const userId = id.toString();
+            const isAssignedTo = task.assignedTo.toString() === userId;
+            const isAssignedBy = task.assignedBy.toString() === userId;
 
             if (!isAssignedTo && !isAssignedBy) {
                 res.status(403);
