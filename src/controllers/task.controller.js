@@ -47,9 +47,14 @@ class TaskController {
         }
 
         // Authorization check for Team Member
-        if (req.user.role !== USER_ROLES.MANAGER && task.assignedTo._id.toString() !== req.user.id) {
-            res.status(403);
-            throw new Error("Not authorized to view this task");
+        if (req.user.role !== USER_ROLES.MANAGER) {
+            const isAssignedTo = task.assignedTo && task.assignedTo._id.toString() === req.user.id;
+            const isAssignedBy = task.assignedBy && task.assignedBy._id.toString() === req.user.id;
+
+            if (!isAssignedTo && !isAssignedBy) {
+                res.status(403);
+                throw new Error("Not authorized to view this task");
+            }
         }
 
         res.status(200).json({
@@ -104,7 +109,10 @@ class TaskController {
             });
         } else {
             // Team Member can only update status
-            if (task.assignedTo.toString() !== id) {
+            const isAssignedTo = task.assignedTo.toString() === id;
+            const isAssignedBy = task.assignedBy.toString() === id;
+
+            if (!isAssignedTo && !isAssignedBy) {
                 res.status(403);
                 throw new Error("Not authorized to update this task");
             }

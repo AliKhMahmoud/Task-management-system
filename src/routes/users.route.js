@@ -21,33 +21,33 @@ router.post('/',
     asyncHandler(userController.addUserByManager)
 );
 
-// router.get('/getAll',
-//     [
-//         apiLimiter
-//     ],
-//     asyncHandler(userController.getAllUsers)
-// );
+router.get('/getAll',
+    [
+        apiLimiter
+    ],
+    asyncHandler(userController.getAllUsers)
+);
 
-// router.get('/userById/:id',
-//     [
-//         apiLimiter
-//     ],
-//     asyncHandler(userController.findUserById)
-// );
+router.get('/userById/:id',
+    [
+        apiLimiter
+    ],
+    asyncHandler(userController.findUserById)
+);
 
-// router.put('/update/:id',
-//     [
-//         apiLimiter
-//     ],
-//     asyncHandler(userController.updateUser)
-// );
+router.put('/update/:id',
+    [
+        apiLimiter
+    ],
+    asyncHandler(userController.updateUser)
+);
 
-// router.delete('/deleteUser/:id',
-//     [
-//         apiLimiter
-//     ],
-//     asyncHandler(userController.deleteUser)
-// );
+router.delete('/deleteUser/:id',
+    [
+        apiLimiter
+    ],
+    asyncHandler(userController.deleteUser)
+);
 
 
 
