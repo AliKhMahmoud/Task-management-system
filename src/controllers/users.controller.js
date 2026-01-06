@@ -34,35 +34,56 @@ class UserController {
     };
 
     async getAllUsers(req,res){
-        // الحل: إزالة limit أو جعله أكبر
-        const page = +req.query.page || 1;
-        const users = await User.paginate({}, {  // استخدم {} للفلتر الفارغ
-            page: page,
-            limit: req.query.limit || 10,  // افتراضي 10 بدلاً من 2
-            sort: { createdAt: -1 }
-        });
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+        const skip = (page - 1) * limit;
+
+        // تنفيذ الاستعلام مع التصفح
+        const users = await User.find({})
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limit);
         
-        if(!users){
-            res.status(404);
-            throw new Error("There is no users to show");
+        const totalDocs = await User.countDocuments({});
+        const totalPages = Math.ceil(totalDocs / limit);
+
+        // محاكاة هيكل استجابة مكتبة paginate
+        const paginationResult = {
+            docs: users,
+            totalDocs,
+            limit,
+            totalPages,
+            page,
+            pagingCounter: skip + 1,
+            hasPrevPage: page > 1,
+            hasNextPage: page < totalPages,
+            prevPage: page > 1 ? page - 1 : null,
+            nextPage: page < totalPages ? page + 1 : null
+        };
+        
+        if(!users || users.length === 0){
+           
+            if (page === 1) {
+                 res.status(404);
+                 throw new Error("There is no users to show");
+            }
         }
     
         return res.status(200).json({
             success: true,
-            data: users
+            data: paginationResult
         });
     }
     
     async findUserById(req,res){
         const {id} = req.params;
-        // ✅ التصحيح: User.findById(id)
         const user = await User.findById(id);
         if(!user){
             res.status(404);
             throw new Error("User not found");
         }
         return res.status(200).json({
-            success:true,  // تصحيح: suucess → success
+            success:true,  
             data:user
         });
     }
@@ -74,7 +95,7 @@ class UserController {
             res.status(404);
             throw new Error("User not found");
         }
-        return res.status(200).json({  // 201 → 200 (أفضل)
+        return res.status(200).json({  
             success:true,
             message:"User deleted successfully",
         });
@@ -97,7 +118,7 @@ class UserController {
                 res.status(400);
                 throw new Error("Email is already in use");
             }
-            user.email = email;  // ✅ تحديث البريد الإلكتروني
+            user.email = email;  
         }
 
         if (name) user.name = name;
