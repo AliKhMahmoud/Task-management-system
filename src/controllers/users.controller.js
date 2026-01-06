@@ -19,7 +19,7 @@ class UserController {
             name,
             email,
             password: hashedPassword,
-            role: USER_ROLES.MANAGER, 
+            role: USER_ROLES.TEAM_MEMBER, 
         });
 
         res.status(201).json({
@@ -34,12 +34,19 @@ class UserController {
     };
 
     async getAllUsers(req,res){
-        const page = +req.query.page||1;
-        const users = await User.paginate({page,limit:2});
+        // الحل: إزالة limit أو جعله أكبر
+        const page = +req.query.page || 1;
+        const users = await User.paginate({}, {  // استخدم {} للفلتر الفارغ
+            page: page,
+            limit: req.query.limit || 10,  // افتراضي 10 بدلاً من 2
+            sort: { createdAt: -1 }
+        });
+        
         if(!users){
             res.status(404);
             throw new Error("There is no users to show");
-            }
+        }
+    
         return res.status(200).json({
             success: true,
             data: users
@@ -48,13 +55,14 @@ class UserController {
     
     async findUserById(req,res){
         const {id} = req.params;
-        const user = await User.findUserById(id);
+        // ✅ التصحيح: User.findById(id)
+        const user = await User.findById(id);
         if(!user){
             res.status(404);
             throw new Error("User not found");
         }
         return res.status(200).json({
-            suucess:true,
+            success:true,  // تصحيح: suucess → success
             data:user
         });
     }
@@ -66,30 +74,43 @@ class UserController {
             res.status(404);
             throw new Error("User not found");
         }
-        return res.status(201).json({
+        return res.status(200).json({  // 201 → 200 (أفضل)
             success:true,
             message:"User deleted successfully",
         });
     }
 
-    async updateUser(req,res){
-        const {id} = req.params;
-        const {name , role} = req.body;
+    async updateUser(req, res) {
+        const { id } = req.params;
+        const { name, email, role } = req.body;
         const user = await User.findById(id);
-        if(!user){
+        
+        if (!user) {
             res.status(404);
             throw new Error("User not found");
         }
-        user.name = name??user.name;
-        user.role = role??user.role;
+
+        // التحقق إذا كان البريد الإلكتروني الجديد مستخدماً من قبل
+        if (email && email !== user.email) {
+            const existingUser = await User.findOne({ email: email });
+            if (existingUser) {
+                res.status(400);
+                throw new Error("Email is already in use");
+            }
+            user.email = email;  // ✅ تحديث البريد الإلكتروني
+        }
+
+        if (name) user.name = name;
+        if (role) user.role = role;
+        
         await user.save();
-        return res.status(201).json({
-            success:true,
-            message:"User updated successfully",
-            user:user,
+        
+        return res.status(200).json({
+            success: true,
+            message: "User updated successfully",
+            user: user,
         });
     }
-
 
 }
 

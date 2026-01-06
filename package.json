@@ -10,9 +10,9 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "description": "",
   "dependencies": {
     "argon2": "^0.44.0",
+    "bcryptjs": "^3.0.3",
     "cloudinary": "^2.8.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
@@ -22,11 +22,22 @@
     "express-validator": "^7.3.1",
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.3",
-    "mongoose": "^9.1.1",
+    "mongoose": "^9.1.2",
     "morgan": "^1.10.1",
     "multer": "^2.0.2",
     "nodemailer": "^7.0.12",
-    "nodemon": "^3.1.11",
     "xss": "^1.0.15"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AliKhMahmoud/Task-management-system.git"
+  },
+  "bugs": {
+    "url": "https://github.com/AliKhMahmoud/Task-management-system/issues"
+  },
+  "homepage": "https://github.com/AliKhMahmoud/Task-management-system#readme",
+  "description": "",
+  "devDependencies": {
+    "nodemon": "^3.1.11"
   }
 }

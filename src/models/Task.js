@@ -74,7 +74,7 @@ taskSchema.virtual('notes', {
 });
 
 // Middleware لتحديث تاريخ الإنجاز عند تغيير الحالة
-taskSchema.pre('save', function (next) {
+taskSchema.pre('save', async function () {
     if (this.isModified('status')) {
         if (this.status === TASK_STATUS.COMPLETED && !this.completedAt) {
             this.completedAt = new Date();
@@ -82,7 +82,6 @@ taskSchema.pre('save', function (next) {
             this.completedAt = null;
         }
     }
-    next();
 });
 
 const Task = mongoose.model('Task', taskSchema);

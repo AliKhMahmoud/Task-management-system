@@ -1,5 +1,5 @@
 function paginatePlugin(schema) {
-    schema.statics.paginate = function({ page = 1, limit = 5 }) {
+    schema.statics.paginate = function({ page = 1, limit = 100 }) {
         const query = this.find();
 
         query.skip((page - 1) * limit) 
@@ -12,7 +12,7 @@ function paginatePlugin(schema) {
             const data = await query.exec();
                     
             const pages = Math.ceil(counts / limit);
-
+        
             return {
                 total: counts,
                 page,
