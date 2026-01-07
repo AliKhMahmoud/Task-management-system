@@ -38,6 +38,7 @@ router.get('/userById/:id',
 router.put('/update/:id',
     [
         apiLimiter
+        
     ],
     asyncHandler(userController.updateUser)
 );
