@@ -36,14 +36,19 @@ router.get('/userById/:id',
 
 router.put('/update/:id',
     [
-        apiLimiter
+        apiLimiter,
+        requireAuth,
+        authorize(USER_ROLES.MANAGER)
+        
     ],
     asyncHandler(userController.updateUser)
 );
 
 router.delete('/deleteUser/:id',
     [
-        apiLimiter
+        apiLimiter,
+        requireAuth,
+        authorize(USER_ROLES.MANAGER)
     ],
     asyncHandler(userController.deleteUser)
 );
