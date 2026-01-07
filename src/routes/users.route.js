@@ -14,7 +14,6 @@ const router = express.Router();
 
 router.post('/',
     [
-        apiLimiter,
         requireAuth,
         authorize(USER_ROLES.MANAGER)
     ],

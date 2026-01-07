@@ -62,10 +62,10 @@ class UserController {
         };
         
         if(!users || users.length === 0){
-           
+            
             if (page === 1) {
-                 res.status(404);
-                 throw new Error("There is no users to show");
+                    res.status(404);
+                    throw new Error("There is no users to show");
             }
         }
     

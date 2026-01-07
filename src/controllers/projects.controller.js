@@ -2,7 +2,9 @@
 // module.exports = new ProjectController();
 const Project = require("../models/Project");
 const { USER_ROLES } = require('../utils/constants'); 
+
 class ProjectController {
+
   async createProjectByManager(req, res) {
     if (req.user.role !== USER_ROLES.MANAGER) {
       const err = new Error("Forbidden");
@@ -139,6 +141,7 @@ async updateProjectByManager(req, res) {
     data: project
   });
 }
+
   async removeProjectByManager(req, res) {
     if (req.user.role !== USER_ROLES.MANAGER) {
       const err = new Error("Forbidden");
