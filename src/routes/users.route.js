@@ -1,54 +1,57 @@
 const express = require('express');
-
 const userController = require("../controllers/users.controller")
 const { requireAuth, authorize } = require("../middlewares/auth.middleware");
 const asyncHandler = require("../utils/asyncHandler");
 const { USER_ROLES } = require('../utils/constants');
-const { apiLimiter } = require('../middlewares/rateLimit.middleware');
+const { addUserValidator, paginationValidator, updateUserValidator } = require('../validation/user.validation');
+const validate = require('../middlewares/validation.middleware');
+// const { validateMongoId } = require('../validation/task.validation');
 
 const router = express.Router();
 
-
+router.use(requireAuth)
 // TODO: Add user routes here
-// Example:
 
 router.post('/',
     [
-        requireAuth,
-        authorize(USER_ROLES.MANAGER)
+        authorize(USER_ROLES.MANAGER),
+        ...addUserValidator,
+        validate
     ],
     asyncHandler(userController.addUserByManager)
 );
 
-router.get('/getAll',
+router.get('/', 
     [
-        apiLimiter
-    ],
+        authorize(USER_ROLES.MANAGER),
+        ...paginationValidator,
+        validate
+    ], 
     asyncHandler(userController.getAllUsers)
 );
 
-router.get('/userById/:id',
-    [
-        apiLimiter
-    ],
+router.get('/:id',
+    // [
+    //     validateMongoId,
+    //     validate
+    // ],
     asyncHandler(userController.findUserById)
 );
 
-router.put('/update/:id',
+router.put('/:id',
     [
-        apiLimiter,
-        requireAuth,
-        authorize(USER_ROLES.MANAGER)
-        
+        authorize(USER_ROLES.MANAGER),
+        ...updateUserValidator,
+        validate
     ],
     asyncHandler(userController.updateUser)
 );
 
-router.delete('/deleteUser/:id',
+router.delete('/:id',
     [
-        apiLimiter,
-        requireAuth,
-        authorize(USER_ROLES.MANAGER)
+        authorize(USER_ROLES.MANAGER),
+        // validateMongoId,
+        // validate
     ],
     asyncHandler(userController.deleteUser)
 );

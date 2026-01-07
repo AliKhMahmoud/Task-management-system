@@ -3,6 +3,8 @@ const authController = require("../controllers/auth.controller");
 const { requireAuth, authorize } = require("../middlewares/auth.middleware");
 const asyncHandler = require("../utils/asyncHandler");
 const { loginLimiter } = require('../middlewares/rateLimit.middleware');
+const { loginValidator } = require('../validation/auth.validation');
+const validate = require('../middlewares/validation.middleware');
 
 const router = express.Router();
 
@@ -11,15 +13,14 @@ const router = express.Router();
 
 router.post('/login',
     [
-        loginLimiter
+        loginLimiter,
+        ...loginValidator,
+        validate
     ],
     asyncHandler(authController.login)
 );
 
 router.post('/logout',
-    [
-        requireAuth
-    ],
     asyncHandler(authController.logout)
 );
 
