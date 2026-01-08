@@ -1,45 +1,119 @@
 const Task = require("../models/Task");
 const Project = require("../models/Project");
 const { USER_ROLES } = require("../utils/constants");
-
+const User = require("../models/User");
+const Note = require("../models/Note");
 class TaskController {
 
     getAllTask = async (req, res) => {
-        const { role, id } = req.user;
-        let filter = {};
-
-        // Filtering
-        if (req.query.status) filter.status = req.query.status;
-        if (req.query.priority) filter.priority = req.query.priority;
-        if (req.query.project) filter.project = req.query.project;
-
-        if (role === USER_ROLES.MANAGER) {
-            // Manager can filter by assignedTo if provided
-            if (req.query.assignedTo) filter.assignedTo = req.query.assignedTo;
-        } else {
-            // Team Member sees only their tasks
-            filter.assignedTo = id;
-        }
-
-        const tasks = await Task.find(filter)
-            .populate("project", "name")
-            .populate("assignedTo", "username email")
-            .populate("assignedBy", "username email")
-            .sort({ createdAt: -1 });
-
-        res.status(200).json({
-            success: true,
-            count: tasks.length,
-            data: tasks
-        });
+    const { role, id } = req.user;
+    let filter = {};
+    
+    // === Basic Filtering ===
+    if (req.query.status) filter.status = req.query.status;
+    if (req.query.priority) filter.priority = req.query.priority;
+    if (req.query.project) filter.project = req.query.project;
+    
+    // === Date Filtering ===
+    if (req.query.dueDateFrom) {
+        filter.dueDate = { ...filter.dueDate, $gte: new Date(req.query.dueDateFrom) };
+    }
+    if (req.query.dueDateTo) {
+        filter.dueDate = { ...filter.dueDate, $lte: new Date(req.query.dueDateTo) };
     }
     
+    // === Role-Based Filtering ===
+    if (role === USER_ROLES.MANAGER) {
+        if (req.query.assignedTo) filter.assignedTo = req.query.assignedTo;
+    } else {
+        filter.assignedTo = id;
+    }
+    
+    // === Advanced Filtering ===
+    if (req.query.search) {
+        filter.$or = [
+            { title: { $regex: req.query.search, $options: 'i' } },
+            { description: { $regex: req.query.search, $options: 'i' } },
+            { tags: { $regex: req.query.search, $options: 'i' } }
+        ];
+    }
+    
+    // === Pagination ===
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const skip = (page - 1) * limit;
+    
+    // === Sorting ===
+    let sort = { createdAt: -1 };
+    if (req.query.sortBy) {
+        const validSortFields = ['dueDate', 'priority', 'createdAt', 'updatedAt', 'title'];
+        if (validSortFields.includes(req.query.sortBy)) {
+            const sortOrder = req.query.sortOrder === 'asc' ? 1 : -1;
+            sort = { [req.query.sortBy]: sortOrder };
+        }
+    }
+    
+    // === Query Execution ===
+    const [tasks, total] = await Promise.all([
+        Task.find(filter)
+            .populate("project", "name description status")
+            .populate("assignedTo", "username email name avatar")
+            .populate("assignedBy", "username email name")
+            .sort(sort)
+            .skip(skip)
+            .limit(limit)
+            .lean(),
+        Task.countDocuments(filter)
+    ]);
+    
+
+    // === Prepare Filter Info ===
+    const appliedFilters = {};
+    if (req.query.status) appliedFilters.status = req.query.status;
+    if (req.query.priority) appliedFilters.priority = req.query.priority;
+    if (req.query.project) appliedFilters.project = req.query.project;
+    if (req.query.assignedTo) appliedFilters.assignedTo = req.query.assignedTo;
+    
+    // === Response ===
+    res.status(200).json({
+        success: true,
+        message: "Tasks retrieved successfully",
+        count: tasks.length,
+        total,
+        pagination: {
+            page,
+            limit,
+            totalPages: Math.ceil(total / limit),
+            hasNextPage: page < Math.ceil(total / limit),
+            hasPrevPage: page > 1
+        },
+        filters: {
+            applied: appliedFilters,
+            search: req.query.search || null,
+            dateRange: {
+                from: req.query.dueDateFrom || null,
+                to: req.query.dueDateTo || null
+            }
+        },
+        data: tasks
+    });
+}
+
     findTaskById = async (req, res) => {
         const task = await Task.findById(req.params.id)
             .populate("project", "name")
-            .populate("assignedTo", "username email")
-            .populate("assignedBy", "username email")
-            .populate("notes");
+            .populate("assignedTo", "username email name avatar")
+            .populate("assignedBy", "username email name")
+            .populate({
+            path: "notes",
+            select: "content createdBy createdAt",
+            options: { sort: { createdAt: -1 } }, 
+            populate: {
+                path: "createdBy",
+                select: "username email name avatar"
+            }
+        })
+        .lean();
 
         if (!task) {
             res.status(404);
@@ -73,7 +147,11 @@ class TaskController {
             res.status(404);
             throw new Error("Project not found");
         }
-
+        const assignedUser = await User.findById(assignedTo);
+        if (!assignedUser) {
+        res.status(404);
+        throw new Error("Assigned user not found");
+    }
         const task = await Task.create({
             title,
             description,
@@ -84,6 +162,11 @@ class TaskController {
             priority,
             status
         });
+         const populatedTask = await Task.findById(task._id)
+        .populate("project", "name description")
+        .populate("assignedTo", "username email name avatar")
+        .populate("assignedBy", "username email name avatar")
+        .lean();
 
         res.status(201).json({
             success: true,
@@ -92,62 +175,122 @@ class TaskController {
         });
     }
 
+ 
     updateTaskByManager = async (req, res) => {
-        let task = await Task.findById(req.params.id);
-
-        if (!task) {
-            res.status(404);
-            throw new Error("Task not found");
-        }
-
-        const { role, id } = req.user;
-
-        if (role === USER_ROLES.MANAGER) {
-            // Manager can update everything
-            task = await Task.findByIdAndUpdate(req.params.id, req.body, {
-                new: true,
-                runValidators: true
-            });
-        } else {
-            // Team Member can only update status
-            const userId = id.toString();
-            const isAssignedTo = task.assignedTo.toString() === userId;
-            const isAssignedBy = task.assignedBy.toString() === userId;
-
-            if (!isAssignedTo && !isAssignedBy) {
-                res.status(403);
-                throw new Error("Not authorized to update this task");
-            }
-
-            if (req.body.status) {
-                task.status = req.body.status;
-                await task.save();
-            }
-        }
-
-        res.status(200).json({
-            success: true,
-            message: "Task updated successfully",
-            data: task
-        });
-    }
+    const taskId = req.params.id;
+    const { role, id } = req.user;
+    const updates = req.body;
     
-    removeTaskByManager = async (req, res) => {
-        const task = await Task.findById(req.params.id);
-
-        if (!task) {
-            res.status(404);
-            throw new Error("Task not found");
-        }
-
-        await task.deleteOne();
-
-        res.status(200).json({
-            success: true,
-            message: "Task deleted successfully"
-        });
+    const task = await Task.findById(taskId);
+    if (!task) {
+        res.status(404);
+        throw new Error("Task not found");
     }
 
+// ===== Setting up allowed updates =====
+    let allowedUpdates = {};
+
+    if (role === USER_ROLES.MANAGER) {
+// The manager controls all fields
+        const validFields = ['title', 'description', 'project', 'assignedTo', 
+                            'dueDate', 'priority', 'status', 'tags'];
+        
+        Object.keys(updates).forEach(key => {
+            if (validFields.includes(key)) {
+                allowedUpdates[key] = updates[key];
+            }
+        });
+
+        //Check if the project is still active and has been updated
+        if (allowedUpdates.project) {
+            const projectExists = await Project.findById(allowedUpdates.project);
+            if (!projectExists) {
+                res.status(404);
+                throw new Error("Project not found");
+            }
+        }
+
+        // Check if the user is still active after the update
+        if (allowedUpdates.assignedTo) {
+            const userExists = await User.findById(allowedUpdates.assignedTo);
+            if (!userExists) {
+                res.status(404);
+                throw new Error("Assigned user not found");
+            }
+        }
+
+    } else {
+        // The team member controls the situation only
+        const isAssignedTo = task.assignedTo && task.assignedTo.toString() === id;
+        
+        if (!isAssignedTo) {
+            res.status(403);
+            throw new Error("You can only update tasks assigned to you");
+        }
+
+        if (updates.status && Object.keys(updates).length === 1) {
+            allowedUpdates.status = updates.status;
+        } else {
+            res.status(403);
+            throw new Error("Team members can only update task status");
+        }
+    }
+
+    //===== Secure application for updates =====
+    Object.keys(allowedUpdates).forEach(key => {
+        task[key] = allowedUpdates[key];
+    });
+
+    await task.save();
+
+    const updatedTask = await Task.findById(task._id)
+        .populate({
+            path: "project",
+            select: "name description status"
+        })
+        .populate({
+            path: "assignedTo",
+            select: "name email avatar role"
+        })
+        .populate({
+            path: "assignedBy",
+            select: "name email avatar role"
+        })
+        .lean();
+
+    const now = new Date();
+    const dueDate = updatedTask.dueDate ? new Date(updatedTask.dueDate) : null;
+    
+    const formattedTask = {
+        ...updatedTask,
+        isOverdue: dueDate && dueDate < now && updatedTask.status !== 'completed',
+        daysLeft: dueDate ? Math.ceil((dueDate - now) / (1000 * 60 * 60 * 24)) : null
+    };
+
+    res.status(200).json({
+        success: true,
+        message: "Task updated successfully",
+        data: formattedTask
+    });
+}
+
+removeTaskByManager = async (req, res) => {
+    const task = await Task.findById(req.params.id);
+
+    if (!task) {
+        res.status(404);
+        throw new Error("Task not found");
+    }
+
+    await Note.deleteMany({ task: task._id });
+
+    await task.deleteOne();
+
+    res.status(200).json({
+        success: true,
+        message: "Task and all associated notes deleted successfully"
+    });
+}
 }
 
 module.exports = new TaskController();

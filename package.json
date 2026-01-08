@@ -36,8 +36,8 @@
     "url": "https://github.com/AliKhMahmoud/Task-management-system/issues"
   },
   "homepage": "https://github.com/AliKhMahmoud/Task-management-system#readme",
-  "description": "",
   "devDependencies": {
     "nodemon": "^3.1.11"
-  }
+  },
+  "description": ""
 }

@@ -21,17 +21,24 @@ router.post('/',
     asyncHandler(userController.addUserByManager)
 );
 
+<<<<<<< Updated upstream
 router.get('/getAll',
+=======
+router.get('/getAll', 
+>>>>>>> Stashed changes
     [
         apiLimiter
     ],
     asyncHandler(userController.getAllUsers)
 );
 
-router.get('/userById/:id',
-    [
-        apiLimiter
-    ],
+
+router.get('/:id',
+    // [
+    //     validateMongoId,
+    //     validate
+    // ],
+
     asyncHandler(userController.findUserById)
 );
 
