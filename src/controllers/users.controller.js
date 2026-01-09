@@ -49,6 +49,7 @@ class UserController {
 
         const users = await User.find({})
             .select("-password")
+            .select("-password")
             .sort({ createdAt: -1 })
             .skip(skip)
             .limit(limit);
@@ -71,7 +72,10 @@ class UserController {
         
         if(!users || users.length === 0){
             
+            
             if (page === 1) {
+                    res.status(404);
+                    throw new Error("There is no users to show");
                     res.status(404);
                     throw new Error("There is no users to show");
             }
@@ -84,7 +88,9 @@ class UserController {
     }
     
     findUserById = async(req,res) => {
+    findUserById = async(req,res) => {
         const {id} = req.params;
+        const user = await User.findById(id).select("-password");
         const user = await User.findById(id).select("-password");
         if(!user){
             res.status(404);
