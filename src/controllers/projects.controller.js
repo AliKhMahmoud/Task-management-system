@@ -14,12 +14,7 @@ class ProjectController {
       throw err;
     }
     const { name, description, startDate, endDate } = req.body;
-    const { name, description, startDate, endDate } = req.body;
     const project = await Project.create({
-      name,
-      description,
-      startDate,
-      endDate,
       name,
       description,
       startDate,
@@ -47,7 +42,6 @@ class ProjectController {
 
   async getAllProjects(req, res) {
     let filter = {};
-    let filter = {};
 
     if (req.user.role === USER_ROLES.MANAGER) {
       filter.manager = req.user.id;
@@ -67,10 +61,6 @@ class ProjectController {
     .populate('manager', 'name email')
     .populate('members', 'name email')
     .sort({ createdAt: -1 });
-    const projects = await Project.find(filter)
-    .populate('manager', 'name email')
-    .populate('members', 'name email')
-    .sort({ createdAt: -1 });
     
 
 
@@ -82,9 +72,6 @@ class ProjectController {
   }
 
   async getProjectById(req, res) {
-    const project = await Project.findById(req.params.id)
-    .populate('members', 'name email')
-
     const project = await Project.findById(req.params.id)
     .populate('members', 'name email')
 
@@ -126,30 +113,12 @@ class ProjectController {
       err.statusCode = 403;
       throw err;
     }
-  async updateProjectByManager(req, res) {
-
-    if (req.user.role !== USER_ROLES.MANAGER) {
-      const err = new Error("Forbidden");
-      err.statusCode = 403;
-      throw err;
-    }
 
     const existingProject = await Project.findOne({
       _id: req.params.id,
       manager: req.user.id
     });
-    const existingProject = await Project.findOne({
-      _id: req.params.id,
-      manager: req.user.id
-    });
 
-    if (!existingProject) {
-      const err = new Error("Project not found");
-      err.statusCode = 404;
-      throw err;
-    }
-    const startDate = req.body.startDate ? new Date(req.body.startDate) : existingProject.startDate;
-    const endDate = req.body.endDate ? new Date(req.body.endDate) : existingProject.endDate;
     if (!existingProject) {
       const err = new Error("Project not found");
       err.statusCode = 404;
@@ -164,21 +133,7 @@ class ProjectController {
         error: `End date (${endDate}) must be after start date (${startDate})`
       });
     }
-    if (endDate <= startDate) {
-      return res.status(400).json({
-        success: false,
-        error: `End date (${endDate}) must be after start date (${startDate})`
-      });
-    }
 
-    const updates = {};
-    
-    const allowedFields = ['name', 'description', 'status', 'progress', 'startDate', 'endDate'];
-    allowedFields.forEach(field => {
-      if (req.body[field] !== undefined) {
-        updates[field] = req.body[field];
-      }
-    });
     const updates = {};
     
     const allowedFields = ['name', 'description', 'status', 'progress', 'startDate', 'endDate'];
@@ -214,13 +169,6 @@ class ProjectController {
     });
   }
 
-    res.status(200).json({
-      success: true,
-      message: "Project updated successfully",
-      data: project
-    });
-  }
-
   async removeProjectByManager(req, res) {
     if (req.user.role !== USER_ROLES.MANAGER) {
       const err = new Error("Forbidden");
@@ -229,13 +177,10 @@ class ProjectController {
     }
 
     const project = await Project.findOne({
-    const project = await Project.findOne({
       _id: req.params.id,
       manager: req.user.id,
     });
 
-    if (!project) {
-      const err = new Error("Project not found or unauthorized");
     if (!project) {
       const err = new Error("Project not found or unauthorized");
       err.statusCode = 404;
@@ -258,7 +203,6 @@ class ProjectController {
 
     res.status(200).json({
       success: true,
-      message: "Project and its related data deleted successfully"
       message: "Project and its related data deleted successfully"
     });
   }
