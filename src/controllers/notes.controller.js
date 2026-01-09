@@ -4,8 +4,7 @@ const { USER_ROLES } = require("../utils/constants");
 
 class NoteController {
 
-
-    async getAllNotes(req,res){
+   async getAllNotes(req,res){
         const { role, id } = req.user;
         const filter = {};
 
@@ -30,9 +29,22 @@ class NoteController {
             }
         }
 
-        const notes = await Note.find(filter)
-            .populate("createdBy", "name email role")
-            .sort({ createdAt: -1 });
+       const notes = await Note.find(filter)
+        .populate({
+            path: "task",
+            select: "title status dueDate",
+            populate: {
+                path: "assignedTo",
+                select: "name email"
+            }
+        })
+        .populate({
+            path: "createdBy",
+            select: "name email role",
+            match: { isActive: true } 
+        })
+        .sort({ createdAt: -1 })
+        .lean();
 
         return res.status(200).json({
             success: true,
@@ -40,6 +52,8 @@ class NoteController {
             data: notes
         });
     }
+
+ 
 
     async createNote(req,res){
         const { content, task, isImportant } = req.body;
@@ -62,7 +76,11 @@ class NoteController {
             task,
             isImportant: !!isImportant,
             createdBy: req.user.id
-        });
+        }).then(createdNote => 
+    createdNote.populate({
+        path: "createdBy",
+        select: "name email role avatar"
+    }));
 
         // Activity Log
         res.logActivity({
@@ -129,7 +147,10 @@ class NoteController {
         if (typeof isImportant !== "undefined") changedFields.push("isImportant");
 
         await note.save();
-
+        await note.populate({
+        path: "createdBy",
+        select: "name email role avatar"
+    });
         // Activity Log
         res.logActivity({
         action: "NOTE_UPDATE",

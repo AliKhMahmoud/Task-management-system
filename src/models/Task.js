@@ -59,21 +59,31 @@ const taskSchema = new mongoose.Schema(
     }
 );
 
-// فهرس للبحث السريع
 taskSchema.index({ project: 1 });
 taskSchema.index({ assignedTo: 1 });
 taskSchema.index({ status: 1 });
 taskSchema.index({ priority: 1 });
 taskSchema.index({ dueDate: 1 });
 
-// Virtual للملاحظات
 taskSchema.virtual('notes', {
     ref: 'Note',
     localField: '_id',
     foreignField: 'task',
 });
+taskSchema.virtual('isOverdue').get(function() {
+    return this.dueDate && new Date(this.dueDate) < new Date() && this.status !== TASK_STATUS.COMPLETED;
+});
 
-// Middleware لتحديث تاريخ الإنجاز عند تغيير الحالة
+
+taskSchema.virtual('daysLeft').get(function() {
+    if (!this.dueDate) return null;
+    const now = new Date();
+    const due = new Date(this.dueDate);
+    const diffTime = due - now;
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays;
+});
+
 taskSchema.pre('save', async function () {
     if (this.isModified('status')) {
         if (this.status === TASK_STATUS.COMPLETED && !this.completedAt) {
