@@ -88,9 +88,7 @@ class UserController {
     }
     
     findUserById = async(req,res) => {
-    findUserById = async(req,res) => {
         const {id} = req.params;
-        const user = await User.findById(id).select("-password");
         const user = await User.findById(id).select("-password");
         if(!user){
             res.status(404);
