@@ -6,10 +6,8 @@ const { requireAuth, authorize } = require('../middlewares/auth.middleware');
 const validate = require('../middlewares/validation.middleware');
 const { addTaskByManagerValidator, updateTaskByManagerValidator, validateMongoId } = require('../validation/task.validation');
 const { USER_ROLES } = require('../utils/constants');
-const { apiLimiter } = require('../middlewares/rateLimit.middleware');
 
 router.use(requireAuth);
-router.use(apiLimiter);
 
 router.get('/', asyncHandler(TaskController.getAllTask));
 

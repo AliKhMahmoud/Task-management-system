@@ -85,6 +85,21 @@ class TaskController {
             status
         });
 
+        // Activity Log
+        res.logActivity({
+        action: "TASK_CREATE",
+        entityType: "Task",
+        entityId: task._id,
+        metadata: {
+            projectId: task.project,
+            assignedTo: task.assignedTo,
+            dueDate: task.dueDate,
+            priority: task.priority,
+            status: task.status
+        }
+        });
+
+
         res.status(201).json({
             success: true,
             message: "Task created successfully",
@@ -108,6 +123,18 @@ class TaskController {
                 new: true,
                 runValidators: true
             });
+
+            // Activity Log
+            res.logActivity({
+            action: "TASK_UPDATE",
+            entityType: "Task",
+            entityId: task._id,
+            metadata: {
+                byRole: role,
+                changedFields: Object.keys(req.body || {})
+            }
+            });
+
         } else {
             // Team Member can only update status
             const userId = id.toString();
@@ -122,6 +149,15 @@ class TaskController {
             if (req.body.status) {
                 task.status = req.body.status;
                 await task.save();
+
+                // Activity Log
+                res.logActivity({
+                action: "TASK_STATUS_UPDATE",
+                entityType: "Task",
+                entityId: task._id,
+                metadata: { status: task.status }
+                });
+
             }
         }
 
@@ -141,6 +177,15 @@ class TaskController {
         }
 
         await task.deleteOne();
+
+        // Activity Log
+        res.logActivity({
+        action: "TASK_DELETE",
+        entityType: "Task",
+        entityId: req.params.id,
+        metadata: { projectId: task.project, assignedTo: task.assignedTo }
+        });
+
 
         res.status(200).json({
             success: true,

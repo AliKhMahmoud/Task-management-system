@@ -1,19 +1,34 @@
-
-// module.exports = new ProjectController();
 const Project = require("../models/Project");
+const Task = require("../models/Task")
 const { USER_ROLES } = require('../utils/constants'); 
+
 class ProjectController {
+
   async createProjectByManager(req, res) {
     if (req.user.role !== USER_ROLES.MANAGER) {
       const err = new Error("Forbidden");
       err.statusCode = 403;
       throw err;
     }
-
+    const { name, description, startDate, endDate } = req.body;
     const project = await Project.create({
-      ...req.body,
+      name,
+      description,
+      startDate,
+      endDate,
       manager: req.user.id,
+      status: "active", 
+      progress: 0,         
     });
+
+    // Activity Log
+    res.logActivity({
+      action: "PROJECT_CREATE",
+      entityType: "Project",
+      entityId: project._id,
+      metadata: { name: project.name }
+    });
+
 
     res.status(201).json({
       success: true,
@@ -23,7 +38,7 @@ class ProjectController {
   }
 
   async getAllProjects(req, res) {
-    const filter = {};
+    let filter = {};
 
     if (req.user.role === USER_ROLES.MANAGER) {
       filter.manager = req.user.id;
@@ -39,9 +54,12 @@ class ProjectController {
       throw err;
     }
 
-    const projects = await Project.find(filter).sort({ createdAt: -1 });
+    const projects = await Project.find(filter)
+    .populate('manager', 'name email')
+    .populate('members', 'name email')
+    .sort({ createdAt: -1 });
     
-    // تحسين الاستجابة
+
     res.status(200).json({
       success: true,
       count: projects.length,
@@ -50,7 +68,9 @@ class ProjectController {
   }
 
   async getProjectById(req, res) {
-    const project = await Project.findById(req.params.id);
+    const project = await Project.findById(req.params.id)
+    .populate('members', 'name email')
+
     if (!project) {
       const err = new Error("Project not found");
       err.statusCode = 404;
@@ -82,63 +102,69 @@ class ProjectController {
     });
   }
 
-  
-async updateProjectByManager(req, res) {
-  if (req.user.role !== USER_ROLES.MANAGER) {
-    const err = new Error("Forbidden");
-    err.statusCode = 403;
-    throw err;
-  }
+  async updateProjectByManager(req, res) {
 
-  // 1. احصل على المشروع الحالي أولاً
-  const existingProject = await Project.findOne({
-    _id: req.params.id,
-    manager: req.user.id
-  });
+    if (req.user.role !== USER_ROLES.MANAGER) {
+      const err = new Error("Forbidden");
+      err.statusCode = 403;
+      throw err;
+    }
 
-  if (!existingProject) {
-    const err = new Error("Project not found");
-    err.statusCode = 404;
-    throw err;
-  }
+    const existingProject = await Project.findOne({
+      _id: req.params.id,
+      manager: req.user.id
+    });
 
-  // 2. التحقق من التواريخ يدوياً
-  const startDate = req.body.startDate ? new Date(req.body.startDate) : existingProject.startDate;
-  const endDate = req.body.endDate ? new Date(req.body.endDate) : existingProject.endDate;
+    if (!existingProject) {
+      const err = new Error("Project not found");
+      err.statusCode = 404;
+      throw err;
+    }
+    const startDate = req.body.startDate ? new Date(req.body.startDate) : existingProject.startDate;
+    const endDate = req.body.endDate ? new Date(req.body.endDate) : existingProject.endDate;
 
-  if (endDate <= startDate) {
-    return res.status(400).json({
-      success: false,
-      error: `End date (${endDate}) must be after start date (${startDate})`
+    if (endDate <= startDate) {
+      return res.status(400).json({
+        success: false,
+        error: `End date (${endDate}) must be after start date (${startDate})`
+      });
+    }
+
+    const updates = {};
+    
+    const allowedFields = ['name', 'description', 'status', 'progress', 'startDate', 'endDate'];
+    allowedFields.forEach(field => {
+      if (req.body[field] !== undefined) {
+        updates[field] = req.body[field];
+      }
+    });
+
+    const project = await Project.findOneAndUpdate(
+      { _id: req.params.id, manager: req.user.id },
+      updates,
+      { 
+        new: true, 
+        runValidators: false  
+      }
+    );
+    // Activity Log
+    res.logActivity({
+      action: "PROJECT_UPDATE",
+      entityType: "Project",
+      entityId: project._id,
+      metadata: {
+        changedFields: Object.keys(updates),
+        name: project.name
+      }
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Project updated successfully",
+      data: project
     });
   }
 
-  // 3. تحديث الحقول
-  const updates = {};
-  
-  // فقط الحقول المسموح بها
-  const allowedFields = ['name', 'description', 'status', 'progress', 'startDate', 'endDate'];
-  allowedFields.forEach(field => {
-    if (req.body[field] !== undefined) {
-      updates[field] = req.body[field];
-    }
-  });
-
-  const project = await Project.findOneAndUpdate(
-    { _id: req.params.id, manager: req.user.id },
-    updates,
-    { 
-      new: true, 
-      runValidators: false  
-    }
-  );
-
-  res.status(200).json({
-    success: true,
-    message: "Project updated successfully",
-    data: project
-  });
-}
   async removeProjectByManager(req, res) {
     if (req.user.role !== USER_ROLES.MANAGER) {
       const err = new Error("Forbidden");
@@ -146,20 +172,34 @@ async updateProjectByManager(req, res) {
       throw err;
     }
 
-    const result = await Project.deleteOne({
+    const project = await Project.findOne({
       _id: req.params.id,
       manager: req.user.id,
     });
 
-    if (result.deletedCount === 0) {
-      const err = new Error("Project not found");
+    if (!project) {
+      const err = new Error("Project not found or unauthorized");
       err.statusCode = 404;
       throw err;
     }
 
+
+    await Task.deleteMany({ project: req.params.id }); 
+
+    await project.deleteOne();
+
+    // Activity Log
+    res.logActivity({
+      action: "PROJECT_DELETE",
+      entityType: "Project",
+      entityId: req.params.id,
+      metadata: {}
+    });
+
+
     res.status(200).json({
       success: true,
-      message: "Project deleted successfully"
+      message: "Project and its related data deleted successfully"
     });
   }
 
@@ -192,7 +232,21 @@ async updateProjectByManager(req, res) {
     const incoming = memberIds.map(String);
 
     project.members = Array.from(new Set([...current, ...incoming]));
+
+    // Activity Log
+    const before = (project.members || []).map(String);
     await project.save();
+    await project.populate('members', 'name email');
+
+    const added = incoming.filter(x => !before.includes(x));
+
+    res.logActivity({
+      action: "PROJECT_ADD_MEMBER",
+      entityType: "Project",
+      entityId: project._id,
+      metadata: { addedMemberIds: added }
+    });
+
 
     res.status(200).json({
       success: true,
@@ -224,6 +278,16 @@ async updateProjectByManager(req, res) {
       (m) => String(m) !== String(memberId)
     );
     await project.save();
+    await project.populate('members', 'name email')
+
+    // Activity Log
+    res.logActivity({
+      action: "PROJECT_REMOVE_MEMBER",
+      entityType: "Project",
+      entityId: project._id,
+      metadata: { removedMemberId: req.params.memberId }
+    });
+
 
     res.status(200).json({
       success: true,

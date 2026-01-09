@@ -43,7 +43,16 @@ class AuthController {
         cookieService.setAccessToken(res, accessToken);
         cookieService.setRefreshToken(res, refreshToken);
 
-        return res.status(200).json({ message: "Logged in Successfully" })
+        // Activity Log
+        res.logActivity({
+        action: "AUTH_LOGIN",
+        entityType: "User",
+        entityId: existEmail._id,
+        metadata: { email: existEmail.email, role: existEmail.role }
+        });
+
+
+        return res.status(200).json({ message: "Logged in Successfully" ,id : existEmail._id });
 
     }
 

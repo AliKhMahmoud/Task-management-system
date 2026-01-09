@@ -64,6 +64,17 @@ class NoteController {
             createdBy: req.user.id
         });
 
+        // Activity Log
+        res.logActivity({
+        action: "NOTE_CREATE",
+        entityType: "Note",
+        entityId: note._id,
+        metadata: {
+            taskId: note.task,
+            isImportant: note.isImportant
+        }
+        });
+
         return res.status(201).json({
             success: true,
             message: "Note created successfully",
@@ -113,6 +124,23 @@ class NoteController {
 
         await note.save();
 
+        const changedFields = [];
+        if (typeof content !== "undefined") changedFields.push("content");
+        if (typeof isImportant !== "undefined") changedFields.push("isImportant");
+
+        await note.save();
+
+        // Activity Log
+        res.logActivity({
+        action: "NOTE_UPDATE",
+        entityType: "Note",
+        entityId: note._id,
+        metadata: {
+            changedFields,
+            taskId: note.task
+        }
+        });
+
         return res.status(200).json({
             success: true,
             message: "Note updated successfully",
@@ -133,7 +161,17 @@ class NoteController {
             }
         }
 
+
+        // Activity Log
+        const taskId = note.task;
         await note.deleteOne();
+
+        res.logActivity({
+        action: "NOTE_DELETE",
+        entityType: "Note",
+        entityId: req.params.id,
+        metadata: { taskId }
+        });
 
         return res.status(200).json({
             success: true,

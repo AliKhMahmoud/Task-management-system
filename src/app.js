@@ -7,6 +7,8 @@ const { apiLimiter } = require("./middlewares/rateLimit.middleware");
 const helmet = require("helmet");
 const cors = require("cors");
 const xssSanitize = require("./middlewares/xss.middleware");
+const activityLog = require("./middlewares/activityLog.middleware");
+
 
 const app = express();
 app.use(express.json())
@@ -44,7 +46,11 @@ app.use(cors({
 }));
 
 // Rate Limiter
-app.use(apiLimiter); 
+app.use(apiLimiter);
+
+//Activity Logs
+app.use(activityLog);
+
 
 // Routes
 app.use('/api/auth', require('./routes/auth.route'));
@@ -52,7 +58,8 @@ app.use('/api/users', require('./routes/users.route'));
 app.use('/api/projects', require('./routes/projects.route'));
 app.use('/api/tasks', require('./routes/tasks.route'));
 app.use('/api/notes', require('./routes/notes.route'));
-// app.use('/api/activities', require('./routes/activity.routes'));
+app.use('/api/activity-logs', require('./routes/activityLogs.route'));
+
 
 // Error Middleware
 app.use(require("./middlewares/error.middleware"));
