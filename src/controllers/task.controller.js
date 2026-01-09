@@ -20,7 +20,11 @@ class TaskController {
         filter.dueDate = { ...filter.dueDate, $gte: new Date(req.query.dueDateFrom) };
     }
     if (req.query.dueDateTo) {
-        filter.dueDate = { ...filter.dueDate, $lte: new Date(req.query.dueDateTo) };
+        const dateTo = new Date(req.query.dueDateTo);
+        if (req.query.dueDateTo.length === 10) {
+            dateTo.setHours(23, 59, 59, 999);
+        }
+        filter.dueDate = { ...filter.dueDate, $lte: dateTo };
     }
     
     // === Role-Based Filtering ===

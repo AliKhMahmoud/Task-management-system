@@ -398,21 +398,53 @@
                 {
                   "key": "status",
                   "value": "pending",
-                  "disabled": true
+                  "disabled": true,
+                  "description": "Filter by task status (pending, in_progress, completed)"
                 },
                 {
                   "key": "priority",
                   "value": "medium",
-                  "disabled": true
+                  "disabled": true,
+                  "description": "Filter by priority (low, medium, high)"
                 },
                 {
                   "key": "project",
                   "value": "{{projectId}}",
-                  "disabled": true
+                  "disabled": true,
+                  "description": "Filter by Project ID"
                 },
                 {
                   "key": "assignedTo",
                   "value": "{{userId}}",
+                  "disabled": true,
+                  "description": "Filter by assigned user ID (Manager only)"
+                },
+                {
+                  "key": "dueDateFrom",
+                  "value": "2026-01-01",
+                  "disabled": true,
+                  "description": "Filter tasks due from this date (YYYY-MM-DD)"
+                },
+                {
+                  "key": "dueDateTo",
+                  "value": "2026-12-31",
+                  "disabled": true,
+                  "description": "Filter tasks due until this date (YYYY-MM-DD)"
+                },
+                {
+                  "key": "search",
+                  "value": "keyword",
+                  "disabled": true,
+                  "description": "Search in title, description, and tags"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "10",
                   "disabled": true
                 }
               ]
