@@ -59,7 +59,7 @@ app.use('/api/projects', require('./routes/projects.route'));
 app.use('/api/tasks', require('./routes/tasks.route'));
 app.use('/api/notes', require('./routes/notes.route'));
 app.use('/api/activity-logs', require('./routes/activityLogs.route'));
-
+app.use('/api/reports', require('./routes/reports.route'));
 
 // Error Middleware
 app.use(require("./middlewares/error.middleware"));
