@@ -55,11 +55,9 @@ const userSchema = new mongoose.Schema(
     }
 );
 
-// فهرس للبحث السريع
 userSchema.index({ email: 1 });
 userSchema.index({ role: 1 });
 
-// Method لإزالة البيانات الحساسة عند التحويل إلى JSON
 userSchema.methods.toJSON = function () {
     const userObject = this.toObject();
     delete userObject.password;

@@ -1,14 +1,11 @@
-/**
- * Constants - الثوابت المستخدمة في التطبيق
- */
 
-// User Roles - أدوار المستخدمين
+// User Roles 
 const USER_ROLES = {
     MANAGER: 'Manager',
     TEAM_MEMBER: 'Team Member',
 };
 
-// Task Status - حالات المهام
+// Task Status 
 const TASK_STATUS = {
     PENDING: 'pending',
     IN_PROGRESS: 'in_progress',
@@ -17,7 +14,7 @@ const TASK_STATUS = {
     ON_HOLD: 'on_hold',
 };
 
-// Task Priority - أولويات المهام
+// Task Priority 
 const TASK_PRIORITY = {
     LOW: 'low',
     MEDIUM: 'medium',
@@ -25,7 +22,7 @@ const TASK_PRIORITY = {
     URGENT: 'urgent',
 };
 
-// Activity Types - أنواع النشاطات
+// Activity Types 
 const ACTIVITY_TYPES = {
     LOGIN: 'login',
     LOGOUT: 'logout',
@@ -57,7 +54,7 @@ const HTTP_STATUS = {
     INTERNAL_SERVER_ERROR: 500,
 };
 
-// Validation Messages - رسائل التحقق
+// Validation Messages 
 const VALIDATION_MESSAGES = {
     REQUIRED: 'هذا الحقل مطلوب',
     INVALID_EMAIL: 'البريد الإلكتروني غير صحيح',

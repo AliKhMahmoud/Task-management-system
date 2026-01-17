@@ -42,11 +42,12 @@ app.use(helmet({
 
 // CORS
 app.use(cors({
-    origin: ["http://localhost:5167"],
+    origin: ['http://localhost:5173'],
+    credentials: true
 }));
 
 // Rate Limiter
-app.use(apiLimiter);
+// app.use(apiLimiter);
 
 //Activity Logs
 app.use(activityLog);

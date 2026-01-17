@@ -142,6 +142,22 @@ class TaskController {
             data: task
         });
     }
+
+    getMyTasks = async (req, res) => {
+        const tasks = await Task.find({ assignedTo: req.user.id })
+            .populate("project", "name description")
+            .populate("assignedTo", "username name avatar")
+            .populate("assignedBy", "username name")
+            .sort({ createdAt: -1 }) 
+            .lean();
+
+        res.status(200).json({
+            success: true,
+            count: tasks.length,
+            data: tasks
+        });
+    }
+
     addTaskByManager = async (req, res) => {
         const { title, description, project, assignedTo, dueDate, priority, status } = req.body;
 
@@ -193,164 +209,170 @@ class TaskController {
             data: task
         });
     }
-updateTaskByManager = async (req, res) => {
-    const taskId = req.params.id;
-    const { role, id } = req.user;
-    const updates = req.body;
-    
-    const task = await Task.findById(taskId);
-    if (!task) {
-        res.status(404);
-        throw new Error("Task not found");
-    }
 
-    // حفظ الحقول قبل التحديث لتسجيل التغييرات
-    const previousTaskState = {
-        ...task._doc
-    };
-
-    // ===== Setting up allowed updates =====
-    let allowedUpdates = {};
-    let logAction = "";
-    let logMetadata = {};
-
-    if (role === USER_ROLES.MANAGER) {
-        // The manager controls all fields
-        const validFields = ['title', 'description', 'project', 'assignedTo', 
-                            'dueDate', 'priority', 'status', 'tags'];
+    updateTaskByManager = async (req, res) => {
+        const taskId = req.params.id;
+        const id = req.user._id || req.user.id; 
+        const role = req.user.role;
+        const updates = req.body;
         
-        Object.keys(updates).forEach(key => {
-            if (validFields.includes(key)) {
-                allowedUpdates[key] = updates[key];
-            }
-        });
+        const task = await Task.findById(taskId);
+        if (!task) {
+            res.status(404);
+            throw new Error("Task not found");
+        }
 
-        // تسجيل الحقول التي تم تغييرها
-        const changedFields = Object.keys(allowedUpdates);
-        const changes = {};
-        
-        changedFields.forEach(field => {
-            changes[field] = {
-                from: previousTaskState[field],
-                to: allowedUpdates[field]
-            };
-        });
-
-        logAction = "TASK_UPDATE";
-        logMetadata = {
-            byRole: role,
-            changedFields: changedFields,
-            changes: changes,
-            updatedBy: id
+        // حفظ الحقول قبل التحديث لتسجيل التغييرات
+        const previousTaskState = {
+            ...task._doc
         };
 
-        //Check if the project is still active and has been updated
-        if (allowedUpdates.project) {
-            const projectExists = await Project.findById(allowedUpdates.project);
-            if (!projectExists) {
-                res.status(404);
-                throw new Error("Project not found");
-            }
-            logMetadata.projectChanged = true;
-        }
+        // ===== Setting up allowed updates =====
+        let allowedUpdates = {};
+        let logAction = "";
+        let logMetadata = {};
 
-        // Check if the user is still active after the update
-        if (allowedUpdates.assignedTo) {
-            const userExists = await User.findById(allowedUpdates.assignedTo);
-            if (!userExists) {
-                res.status(404);
-                throw new Error("Assigned user not found");
-            }
-            logMetadata.assignedToChanged = true;
-            logMetadata.newAssignee = allowedUpdates.assignedTo;
-        }
-
-    } else {
-        // The team member controls the situation only
-        const isAssignedTo = task.assignedTo && task.assignedTo.toString() === id;
-        
-        if (!isAssignedTo) {
-            res.status(403);
-            throw new Error("You can only update tasks assigned to you");
-        }
-
-        if (updates.status && Object.keys(updates).length === 1) {
-            allowedUpdates.status = updates.status;
+        if (role === USER_ROLES.MANAGER) {
+            // The manager controls all fields
+            const validFields = ['title', 'description', 'project', 'assignedTo', 
+                                'dueDate', 'priority', 'status', 'tags'];
             
-            logAction = "TASK_STATUS_UPDATE";
+            Object.keys(updates).forEach(key => {
+                if (validFields.includes(key)) {
+                    allowedUpdates[key] = updates[key];
+                }
+            });
+
+            // تسجيل الحقول التي تم تغييرها
+            const changedFields = Object.keys(allowedUpdates);
+            const changes = {};
+            
+            changedFields.forEach(field => {
+                changes[field] = {
+                    from: previousTaskState[field],
+                    to: allowedUpdates[field]
+                };
+            });
+
+            logAction = "TASK_UPDATE";
             logMetadata = {
                 byRole: role,
-                previousStatus: previousTaskState.status,
-                newStatus: updates.status,
-                updatedBy: id,
-                taskId: taskId
+                changedFields: changedFields,
+                changes: changes,
+                updatedBy: id
             };
+
+            //Check if the project is still active and has been updated
+            if (allowedUpdates.project) {
+                const projectExists = await Project.findById(allowedUpdates.project);
+                if (!projectExists) {
+                    res.status(404);
+                    throw new Error("Project not found");
+                }
+                logMetadata.projectChanged = true;
+            }
+
+            // Check if the user is still active after the update
+            if (allowedUpdates.assignedTo) {
+                const userExists = await User.findById(allowedUpdates.assignedTo);
+                if (!userExists) {
+                    res.status(404);
+                    throw new Error("Assigned user not found");
+                }
+                logMetadata.assignedToChanged = true;
+                logMetadata.newAssignee = allowedUpdates.assignedTo;
+            }
+
         } else {
-            res.status(403);
-            throw new Error("Team members can only update task status");
+            const userIdFromToken = (req.user._id || req.user.id).toString();
+            const taskAssignedId = task.assignedTo ? task.assignedTo.toString() : null;
+            // The team member controls the situation only
+            const isAssignedTo = taskAssignedId === userIdFromToken;
+            
+            if (!isAssignedTo) {
+                return res.status(403).json({ 
+                    success: false, 
+                    error: "You can only update tasks assigned to you" 
+                });
+            }
+
+            if (updates.status && Object.keys(updates).length === 1) {
+                allowedUpdates.status = updates.status;
+                
+                logAction = "TASK_STATUS_UPDATE";
+                logMetadata = {
+                    byRole: role,
+                    previousStatus: previousTaskState.status,
+                    newStatus: updates.status,
+                    updatedBy: id,
+                    taskId: taskId
+                };
+            } else {
+                res.status(403);
+                throw new Error("Team members can only update task status");
+            }
         }
-    }
 
-    // ===== Secure application for updates =====
-    Object.keys(allowedUpdates).forEach(key => {
-        task[key] = allowedUpdates[key];
-    });
+        // ===== Secure application for updates =====
+        Object.keys(allowedUpdates).forEach(key => {
+            task[key] = allowedUpdates[key];
+        });
 
-    await task.save();
+        await task.save();
 
-    // ===== Activity Logging =====
-    if (logAction && res.logActivity) {
-        try {
-            await res.logActivity({
-                action: logAction,
-                entityType: "Task",
-                entityId: task._id,
-                userId: id,
-                userRole: role,
-                timestamp: new Date(),
-                metadata: logMetadata,
-                ipAddress: req.ip,
-                userAgent: req.get('User-Agent')
-            });
-        } catch (logError) {
-            console.error("Failed to log activity:", logError);
-            // لا نوقف العملية إذا فشل التسجيل
+        // ===== Activity Logging =====
+        if (logAction && res.logActivity) {
+            try {
+                await res.logActivity({
+                    action: logAction,
+                    entityType: "Task",
+                    entityId: task._id,
+                    userId: id,
+                    userRole: role,
+                    timestamp: new Date(),
+                    metadata: logMetadata,
+                    ipAddress: req.ip,
+                    userAgent: req.get('User-Agent')
+                });
+            } catch (logError) {
+                console.error("Failed to log activity:", logError);
+                // لا نوقف العملية إذا فشل التسجيل
+            }
         }
+
+        // ===== Preparing Response =====
+        const updatedTask = await Task.findById(task._id)
+            .populate({
+                path: "project",
+                select: "name description status"
+            })
+            .populate({
+                path: "assignedTo",
+                select: "name email avatar role"
+            })
+            .populate({
+                path: "assignedBy",
+                select: "name email avatar role"
+            })
+            .lean();
+
+        const now = new Date();
+        const dueDate = updatedTask.dueDate ? new Date(updatedTask.dueDate) : null;
+        
+        const formattedTask = {
+            ...updatedTask,
+            isOverdue: dueDate && dueDate < now && updatedTask.status !== 'completed',
+            daysLeft: dueDate ? Math.ceil((dueDate - now) / (1000 * 60 * 60 * 24)) : null
+        };
+
+        res.status(200).json({
+            success: true,
+            message: "Task updated successfully",
+            data: formattedTask,
+            activityLogged: !!logAction,
+            changes: logMetadata.changedFields || [updates.status ? 'status' : null].filter(Boolean)
+        });
     }
-
-    // ===== Preparing Response =====
-    const updatedTask = await Task.findById(task._id)
-        .populate({
-            path: "project",
-            select: "name description status"
-        })
-        .populate({
-            path: "assignedTo",
-            select: "name email avatar role"
-        })
-        .populate({
-            path: "assignedBy",
-            select: "name email avatar role"
-        })
-        .lean();
-
-    const now = new Date();
-    const dueDate = updatedTask.dueDate ? new Date(updatedTask.dueDate) : null;
-    
-    const formattedTask = {
-        ...updatedTask,
-        isOverdue: dueDate && dueDate < now && updatedTask.status !== 'completed',
-        daysLeft: dueDate ? Math.ceil((dueDate - now) / (1000 * 60 * 60 * 24)) : null
-    };
-
-    res.status(200).json({
-        success: true,
-        message: "Task updated successfully",
-        data: formattedTask,
-        activityLogged: !!logAction,
-        changes: logMetadata.changedFields || [updates.status ? 'status' : null].filter(Boolean)
-    });
-}
     
     removeTaskByManager = async (req, res) => {
         const task = await Task.findById(req.params.id);

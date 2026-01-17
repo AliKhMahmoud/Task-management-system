@@ -1,5 +1,5 @@
 function paginatePlugin(schema) {
-    schema.statics.paginate = function({ page = 1, limit = 100 }) {
+    schema.statics.paginate = function({ page = 1, limit = 10 }) {
         const query = this.find();
 
         query.skip((page - 1) * limit) 
