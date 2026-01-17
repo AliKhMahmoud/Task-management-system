@@ -52,7 +52,7 @@ class AuthController {
         });
 
 
-        return res.status(200).json({ message: "Logged in Successfully" ,id : existEmail._id });
+        return res.status(200).json({ message: "Logged in Successfully" ,id : existEmail._id, role:existEmail.role });
 
     }
 

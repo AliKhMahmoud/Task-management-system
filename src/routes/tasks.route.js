@@ -11,6 +11,10 @@ router.use(requireAuth);
 
 router.get('/', asyncHandler(TaskController.getAllTask));
 
+router.get('/myTasks', 
+    asyncHandler(TaskController.getMyTasks)
+);
+
 router.get('/:id', 
     validateMongoId('id'),
     validate,

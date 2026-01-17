@@ -8,7 +8,8 @@ class CookieService {
     setAccessToken(res, token) {
         res.cookie("accessToken", token, {
             ...cookieConfig,
-            maxAge: 15 * 60 * 1000 // 15m
+            maxAge: 1500 * 60 * 1000 //for test
+            // maxAge: 15 * 60 * 1000 
         });
     }
 

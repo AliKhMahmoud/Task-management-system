@@ -1,6 +1,7 @@
 const User = require("../models/User");
 const passwordService = require("../utils/passwordUtils");
 const { USER_ROLES } = require('../utils/constants');
+const sendMessage = require("../utils/sendEmail"); 
 
 class UserController {
 
@@ -21,6 +22,27 @@ class UserController {
             password: hashedPassword,
             role: USER_ROLES.TEAM_MEMBER, 
         });
+        // --- Sending Welcome Email ---
+    try {
+        await sendMessage({
+            to: newUser.email,
+            subject: "Welcome to the Team",
+            html: `
+                Hello ${newUser.name},
+                Your account has been created successfully.
+                
+                Login Credentials:
+                Email: ${newUser.email}
+                Password: ${password}
+                
+                Please login and change your password for security.
+                Best regards,
+                Task Management System
+            `
+        });
+    } catch (error) {
+        console.error("Email Error:", error.message);
+    }
 
         // Activity Log
         res.logActivity({
