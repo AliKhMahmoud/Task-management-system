@@ -8,9 +8,12 @@ const helmet = require("helmet");
 const cors = require("cors");
 const xssSanitize = require("./middlewares/xss.middleware");
 const activityLog = require("./middlewares/activityLog.middleware");
-
+const http = require("http");
+const { initSocket } = require("./utils/socket");
 
 const app = express();
+const server = http.createServer(app);
+initSocket(server);
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
 
@@ -42,7 +45,8 @@ app.use(helmet({
 
 // CORS
 app.use(cors({
-    origin: ["http://localhost:5167"],
+    origin: ["http://localhost:5167", "http://localhost:3000", "http://localhost:5000"],
+    credentials: true
 }));
 
 // Rate Limiter
@@ -50,6 +54,9 @@ app.use(apiLimiter);
 
 //Activity Logs
 app.use(activityLog);
+
+// Serve static files
+app.use(express.static('public'));
 
 
 // Routes
@@ -59,6 +66,7 @@ app.use('/api/projects', require('./routes/projects.route'));
 app.use('/api/tasks', require('./routes/tasks.route'));
 app.use('/api/notes', require('./routes/notes.route'));
 app.use('/api/activity-logs', require('./routes/activityLogs.route'));
+app.use('/api/notifications', require('./routes/notifications.route'));
 
 
 // Error Middleware
@@ -73,7 +81,7 @@ const MONGO_URL = process.env.MONGODB_URI;
 mongoose.connect(MONGO_URL)
     .then(res => {
         console.log("Connected to database done")
-        app.listen(PORT, () => {
+        server.listen(PORT, () => {
             console.log(`Server is running on: http://localhost:${PORT}`)
         })
     })

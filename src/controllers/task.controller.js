@@ -3,6 +3,8 @@ const Project = require("../models/Project");
 const { USER_ROLES } = require("../utils/constants");
 const User = require("../models/User");
 const Note = require("../models/Note");
+const { sendNotification } = require("../utils/socket");
+const NotificationService = require("../services/notification.service");
 class TaskController {
 
 
@@ -186,6 +188,17 @@ class TaskController {
         }
         });
 
+        // Send notification to assigned user
+        await NotificationService.createAndSend(task.assignedTo, "NEW_TASK_ASSIGNED", {
+            message: `You have been assigned a new task: "${task.title}"`,
+            taskId: task._id,
+            taskTitle: task.title,
+            project: projectExists.name,
+            dueDate: task.dueDate,
+            priority: task.priority,
+            assignedBy: req.user.name || req.user.username
+        });
+
 
         res.status(201).json({
             success: true,
@@ -263,12 +276,30 @@ updateTaskByManager = async (req, res) => {
             }
             logMetadata.assignedToChanged = true;
             logMetadata.newAssignee = allowedUpdates.assignedTo;
+
+            // Send notification to newly assigned user if assignment changed
+            if (!previousTaskState.assignedTo || 
+                previousTaskState.assignedTo.toString() !== allowedUpdates.assignedTo.toString()) {
+                await NotificationService.createAndSend(allowedUpdates.assignedTo, "TASK_REASSIGNED", {
+                    message: `You have been assigned to task: "${task.title}"`,
+                    taskId: task._id,
+                    taskTitle: task.title,
+                    project: task.project,
+                    assignedBy: req.user.name || req.user.username,
+                    previousAssignee: previousTaskState.assignedTo
+                });
+            }
         }
 
     } else {
         // The team member controls the situation only
-        const isAssignedTo = task.assignedTo && task.assignedTo.toString() === id;
+        const isAssignedTo = task.assignedTo && (
+            (typeof task.assignedTo.equals === 'function' && task.assignedTo.equals(id)) ||
+            task.assignedTo.toString() === id.toString()
+        );
         
+        console.log(`[DEBUG] Update Check: TaskAssignedTo=${task.assignedTo}, UserId=${id}, Match=${isAssignedTo}`);
+
         if (!isAssignedTo) {
             res.status(403);
             throw new Error("You can only update tasks assigned to you");
@@ -285,6 +316,19 @@ updateTaskByManager = async (req, res) => {
                 updatedBy: id,
                 taskId: taskId
             };
+
+            // Notify the manager (Project Manager)
+            const project = await Project.findById(task.project);
+            if (project && project.manager) {
+                await NotificationService.createAndSend(project.manager, "TASK_STATUS_UPDATED", {
+                    message: `Task "${task.title}" status changed to ${updates.status}`,
+                    taskId: task._id,
+                    taskTitle: task.title,
+                    oldStatus: previousTaskState.status,
+                    newStatus: updates.status,
+                    updatedBy: req.user.name || req.user.username
+                });
+            }
         } else {
             res.status(403);
             throw new Error("Team members can only update task status");

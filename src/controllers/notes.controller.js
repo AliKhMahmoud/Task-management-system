@@ -1,6 +1,9 @@
 const Note = require("../models/Note");
 const Task = require("../models/Task");
+const Project = require("../models/Project");
 const { USER_ROLES } = require("../utils/constants");
+const { sendNotification } = require("../utils/socket");
+const NotificationService = require("../services/notification.service");
 
 class NoteController {
 
@@ -58,7 +61,7 @@ class NoteController {
     async createNote(req,res){
         const { content, task, isImportant } = req.body;
 
-        const existingTask = await Task.findById(task).select("assignedTo");
+        const existingTask = await Task.findById(task).populate("project", "name").select("assignedTo project title");
         if (!existingTask) {
             res.status(404);
             throw new Error("Task not found");
@@ -92,6 +95,20 @@ class NoteController {
             isImportant: note.isImportant
         }
         });
+
+        // Notify Manager if Note is Important
+        if (note.isImportant) {
+            const project = await Project.findById(existingTask.project._id).select('manager');
+            if (project && project.manager) {
+                await NotificationService.createAndSend(project.manager, "IMPORTANT_NOTE_ADDED", {
+                    message: `Important note added to task: ${existingTask.title}`,
+                    taskId: existingTask._id,
+                    taskTitle: existingTask.title,
+                    noteContent: content,
+                    addedBy: req.user.name || req.user.username
+                });
+            }
+        }
 
         return res.status(201).json({
             success: true,
