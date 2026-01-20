@@ -5,106 +5,106 @@ const User = require("../models/User");
 const Note = require("../models/Note");
 const { sendNotification } = require("../utils/socket");
 const NotificationService = require("../services/notification.service");
+
 class TaskController {
 
-
     getAllTask = async (req, res) => {
-    const { role, id } = req.user;
-    let filter = {};
-    
-    // === Basic Filtering ===
-    if (req.query.status) filter.status = req.query.status;
-    if (req.query.priority) filter.priority = req.query.priority;
-    if (req.query.project) filter.project = req.query.project;
-    
-    // === Date Filtering ===
-    if (req.query.dueDateFrom) {
-        filter.dueDate = { ...filter.dueDate, $gte: new Date(req.query.dueDateFrom) };
-    }
-    if (req.query.dueDateTo) {
-        const dateTo = new Date(req.query.dueDateTo);
-        if (req.query.dueDateTo.length === 10) {
-            dateTo.setHours(23, 59, 59, 999);
+        const { role, id } = req.user;
+        let filter = {};
+        
+        // === Basic Filtering ===
+        if (req.query.status) filter.status = req.query.status;
+        if (req.query.priority) filter.priority = req.query.priority;
+        if (req.query.project) filter.project = req.query.project;
+        
+        // === Date Filtering ===
+        if (req.query.dueDateFrom) {
+            filter.dueDate = { ...filter.dueDate, $gte: new Date(req.query.dueDateFrom) };
         }
-        filter.dueDate = { ...filter.dueDate, $lte: dateTo };
-    }
-    
-    // === Role-Based Filtering ===
-    if (role === USER_ROLES.MANAGER) {
-        if (req.query.assignedTo) filter.assignedTo = req.query.assignedTo;
-    } else {
-        filter.assignedTo = id;
-    }
-    
-    // === Advanced Filtering ===
-    if (req.query.search) {
-        filter.$or = [
-            { title: { $regex: req.query.search, $options: 'i' } },
-            { description: { $regex: req.query.search, $options: 'i' } },
-            { tags: { $regex: req.query.search, $options: 'i' } }
-        ];
-    }
-    
-    // === Pagination ===
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 20;
-    const skip = (page - 1) * limit;
-    
-    // === Sorting ===
-    let sort = { createdAt: -1 };
-    if (req.query.sortBy) {
-        const validSortFields = ['dueDate', 'priority', 'createdAt', 'updatedAt', 'title'];
-        if (validSortFields.includes(req.query.sortBy)) {
-            const sortOrder = req.query.sortOrder === 'asc' ? 1 : -1;
-            sort = { [req.query.sortBy]: sortOrder };
-        }
-    }
-    
-    // === Query Execution ===
-    const [tasks, total] = await Promise.all([
-        Task.find(filter)
-            .populate("project", "name description status")
-            .populate("assignedTo", "username email name avatar")
-            .populate("assignedBy", "username email name")
-            .sort(sort)
-            .skip(skip)
-            .limit(limit)
-            .lean(),
-        Task.countDocuments(filter)
-    ]);
-    
-
-    // === Prepare Filter Info ===
-    const appliedFilters = {};
-    if (req.query.status) appliedFilters.status = req.query.status;
-    if (req.query.priority) appliedFilters.priority = req.query.priority;
-    if (req.query.project) appliedFilters.project = req.query.project;
-    if (req.query.assignedTo) appliedFilters.assignedTo = req.query.assignedTo;
-    
-    // === Response ===
-    res.status(200).json({
-        success: true,
-        message: "Tasks retrieved successfully",
-        count: tasks.length,
-        total,
-        pagination: {
-            page,
-            limit,
-            totalPages: Math.ceil(total / limit),
-            hasNextPage: page < Math.ceil(total / limit),
-            hasPrevPage: page > 1
-        },
-        filters: {
-            applied: appliedFilters,
-            search: req.query.search || null,
-            dateRange: {
-                from: req.query.dueDateFrom || null,
-                to: req.query.dueDateTo || null
+        if (req.query.dueDateTo) {
+            const dateTo = new Date(req.query.dueDateTo);
+            if (req.query.dueDateTo.length === 10) {
+                dateTo.setHours(23, 59, 59, 999);
             }
-        },
-        data: tasks
-    });
-}
+            filter.dueDate = { ...filter.dueDate, $lte: dateTo };
+        }
+        
+        // === Role-Based Filtering ===
+        if (role === USER_ROLES.MANAGER) {
+            if (req.query.assignedTo) filter.assignedTo = req.query.assignedTo;
+        } else {
+            filter.assignedTo = id;
+        }
+        
+        // === Advanced Filtering ===
+        if (req.query.search) {
+            filter.$or = [
+                { title: { $regex: req.query.search, $options: 'i' } },
+                { description: { $regex: req.query.search, $options: 'i' } },
+                { tags: { $regex: req.query.search, $options: 'i' } }
+            ];
+        }
+        
+        // === Pagination ===
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 20;
+        const skip = (page - 1) * limit;
+        
+        // === Sorting ===
+        let sort = { createdAt: -1 };
+        if (req.query.sortBy) {
+            const validSortFields = ['dueDate', 'priority', 'createdAt', 'updatedAt', 'title'];
+            if (validSortFields.includes(req.query.sortBy)) {
+                const sortOrder = req.query.sortOrder === 'asc' ? 1 : -1;
+                sort = { [req.query.sortBy]: sortOrder };
+            }
+        }
+        
+        // === Query Execution ===
+        const [tasks, total] = await Promise.all([
+            Task.find(filter)
+                .populate("project", "name description status")
+                .populate("assignedTo", "username email name avatar")
+                .populate("assignedBy", "username email name")
+                .sort(sort)
+                .skip(skip)
+                .limit(limit)
+                .lean(),
+            Task.countDocuments(filter)
+        ]);
+        
+
+        // === Prepare Filter Info ===
+        const appliedFilters = {};
+        if (req.query.status) appliedFilters.status = req.query.status;
+        if (req.query.priority) appliedFilters.priority = req.query.priority;
+        if (req.query.project) appliedFilters.project = req.query.project;
+        if (req.query.assignedTo) appliedFilters.assignedTo = req.query.assignedTo;
+        
+        // === Response ===
+        res.status(200).json({
+            success: true,
+            message: "Tasks retrieved successfully",
+            count: tasks.length,
+            total,
+            pagination: {
+                page,
+                limit,
+                totalPages: Math.ceil(total / limit),
+                hasNextPage: page < Math.ceil(total / limit),
+                hasPrevPage: page > 1
+            },
+            filters: {
+                applied: appliedFilters,
+                search: req.query.search || null,
+                dateRange: {
+                    from: req.query.dueDateFrom || null,
+                    to: req.query.dueDateTo || null
+                }
+            },
+            data: tasks
+        });
+    }
 
     findTaskById = async (req, res) => {
         const task = await Task.findById(req.params.id)
@@ -315,6 +315,7 @@ class TaskController {
         const now = new Date();
         const dueDate = updatedTask.dueDate ? new Date(updatedTask.dueDate) : null;
         
+        // إعادة الـ 100 سطر (تنسيق الـ Response)
         const formattedTask = {
             ...updatedTask,
             isOverdue: dueDate && dueDate < now && updatedTask.status !== 'completed',

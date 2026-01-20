@@ -77,6 +77,7 @@ router.delete("/:id/members/:memberId",
   asyncHandler(projectController.removeMemberByManager)
 );
 
+//reports
 router.get("/:projectId/report",
   [
     authorize(USER_ROLES.MANAGER)

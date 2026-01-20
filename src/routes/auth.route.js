@@ -13,7 +13,7 @@ const router = express.Router();
 
 router.post('/login',
     [
-        // loginLimiter,
+        loginLimiter,
         ...loginValidator,
         validate
     ],

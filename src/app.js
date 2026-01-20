@@ -50,7 +50,7 @@ app.use(cors({
 }));
 
 // Rate Limiter
-// app.use(apiLimiter);
+app.use(apiLimiter);
 
 //Activity Logs
 app.use(activityLog);
