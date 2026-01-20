@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Task Management - Notifications Demo</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f5f5;
+            direction: rtl;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .notification-bell {
+            position: relative;
+            cursor: pointer;
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 50%;
+            font-size: 18px;
+        }
+
+        .notification-count {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            background: #dc3545;
+            color: white;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .notifications-panel {
+            position: fixed;
+            top: 70px;
+            left: 20px;
+            width: 350px;
+            max-height: 400px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            overflow: hidden;
+            display: none;
+            z-index: 1000;
+        }
+
+        .notifications-panel.active {
+            display: block;
+        }
+
+        .notifications-header {
+            padding: 15px;
+            background: #007bff;
+            color: white;
+            font-weight: bold;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .mark-all-read {
+            background: transparent;
+            border: 1px solid white;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .notifications-list {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .notification-item {
+            padding: 15px;
+            border-bottom: 1px solid #eee;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .notification-item:hover {
+            background: #f8f9fa;
+        }
+
+        .notification-item.unread {
+            background: #e3f2fd;
+            border-right: 3px solid #007bff;
+        }
+
+        .notification-title {
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #333;
+        }
+
+        .notification-message {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 5px;
+        }
+
+        .notification-time {
+            color: #999;
+            font-size: 12px;
+        }
+
+        .demo-section {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+
+        .demo-buttons {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .demo-btn {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .demo-btn:hover {
+            background: #218838;
+        }
+
+        .status-indicator {
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 10px;
+        }
+
+        .status-connected {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status-disconnected {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #666;
+        }
+
+        @media (max-width: 768px) {
+            .notifications-panel {
+                width: 90%;
+                right: 5%;
+                left: 5%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>نظام إدارة المهام - الإشعارات</h1>
+            <div style="position: relative;">
+                <button class="notification-bell" onclick="toggleNotifications()">
+                    🔔
+                    <span class="notification-count" id="notificationCount" style="display: none;">0</span>
+                </button>
+            </div>
+        </div>
+
+        <div class="status-indicator" id="connectionStatus">
+            <span id="statusText">جاري الاتصال...</span>
+        </div>
+
+        <div class="demo-section">
+            <h2>تجربة الإشعارات</h2>
+            <p style="margin-bottom: 15px; color: #666;">اضغط على الأزرار أدناه لمحاكاة إشعارات مختلفة:</p>
+            <div class="demo-buttons">
+                <button class="demo-btn" onclick="simulateTaskAssignment()">محاكاة تعيين مهمة جديدة</button>
+                <button class="demo-btn" onclick="simulateStatusChange()">محاكاة تغيير الحالة</button>
+                <button class="demo-btn" onclick="simulateImportantNote()">محاكاة ملاحظة هامة</button>
+                <button class="demo-btn" onclick="clearNotifications()">مسح جميع الإشعارات</button>
+            </div>
+        </div>
+
+        <div class="demo-section">
+            <h2>سجل الإشعارات</h2>
+            <div id="notificationLog" style="max-height: 300px; overflow-y: auto; padding: 10px; background: #f8f9fa; border-radius: 4px;">
+                <p style="color: #666; text-align: center;">في انتظار الإشعارات...</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="notifications-panel" id="notificationsPanel">
+        <div class="notifications-header">
+            <span>الإشعارات</span>
+            <button class="mark-all-read" onclick="markAllAsRead()">تحديد الكل كمقروء</button>
+        </div>
+        <div class="notifications-list" id="notificationsList">
+            <div class="empty-state">لا توجد إشعارات</div>
+        </div>
+    </div>
+
+    <script>
+        let socket;
+        let notifications = [];
+     //   
+     let userId = '695856cd45adcb4710585926'; // ID المستخدم النشط من logs
+//     let userId = 'demo-user';
+        // تهيئة الاتصال بـ Socket.IO
+        function initSocket() {
+            socket = io();
+            
+            socket.on('connect', () => {
+                updateConnectionStatus(true);
+                console.log('Connected to server');
+                // الانضمام إلى غرفة الإشعارات الخاصة بالمستخدم
+                socket.emit('join', userId);
+            });
+
+            socket.on('disconnect', () => {
+                updateConnectionStatus(false);
+                console.log('Disconnected from server');
+            });
+
+            socket.on('notification', (data) => {
+                console.log('Received notification:', data);
+                handleNewNotification(data);
+            });
+        }
+
+        function updateConnectionStatus(connected) {
+            const statusEl = document.getElementById('connectionStatus');
+            const statusText = document.getElementById('statusText');
+            
+            if (connected) {
+                statusEl.className = 'status-indicator status-connected';
+                statusText.textContent = 'متصل بالخادم';
+            } else {
+                statusEl.className = 'status-indicator status-disconnected';
+                statusText.textContent = 'غير متصل بالخادم';
+            }
+        }
+
+        function handleNewNotification(notification) {
+            // إضافة الإشعار إلى القائمة
+            notifications.unshift({
+                ...notification,
+                id: notification.notificationId || Date.now(),
+                read: false,
+                timestamp: notification.timestamp || new Date()
+            });
+
+            // تحديث الواجهة
+            updateNotificationUI();
+            updateNotificationLog(notification);
+        }
+
+        function updateNotificationUI() {
+            const unreadCount = notifications.filter(n => !n.read).length;
+            const countEl = document.getElementById('notificationCount');
+            
+            if (unreadCount > 0) {
+                countEl.textContent = unreadCount;
+                countEl.style.display = 'flex';
+            } else {
+                countEl.style.display = 'none';
+            }
+
+            updateNotificationsList();
+        }
+
+        function updateNotificationsList() {
+            const listEl = document.getElementById('notificationsList');
+            
+            if (notifications.length === 0) {
+                listEl.innerHTML = '<div class="empty-state">لا توجد إشعارات</div>';
+                return;
+            }
+
+            listEl.innerHTML = notifications.map(notification => `
+                <div class="notification-item ${!notification.read ? 'unread' : ''}" onclick="markAsRead(${notification.id})">
+                    <div class="notification-title">${getNotificationTitle(notification.type)}</div>
+                    <div class="notification-message">${notification.message}</div>
+                    <div class="notification-time">${formatTime(notification.timestamp)}</div>
+                </div>
+            `).join('');
+        }
+
+        function getNotificationTitle(type) {
+            const titles = {
+                'NEW_TASK_ASSIGNED': 'مهمة جديدة معينة',
+                'TASK_REASSIGNED': 'إعادة تعيين مهمة',
+                'TASK_STATUS_UPDATED': 'تحديث حالة المهمة',
+                'IMPORTANT_NOTE_ADDED': 'إضافة ملاحظة هامة'
+            };
+            return titles[type] || 'إشعار';
+        }
+
+        function formatTime(timestamp) {
+            const date = new Date(timestamp);
+            return date.toLocaleTimeString('ar-SA', { 
+                hour: '2-digit', 
+                minute: '2-digit' 
+            });
+        }
+
+        function updateNotificationLog(notification) {
+            const logEl = document.getElementById('notificationLog');
+            const logEntry = document.createElement('div');
+            logEntry.style.cssText = 'padding: 8px; margin-bottom: 5px; background: white; border-radius: 4px; border-left: 3px solid #007bff;';
+            logEntry.innerHTML = `
+                <strong>${getNotificationTitle(notification.type)}</strong><br>
+                <small>${notification.message}</small><br>
+                <small style="color: #666;">${new Date(notification.timestamp).toLocaleString('ar-SA')}</small>
+            `;
+            
+            if (logEl.children[0]?.textContent.includes('في انتظار الإشعارات')) {
+                logEl.innerHTML = '';
+            }
+            
+            logEl.insertBefore(logEntry, logEl.firstChild);
+        }
+
+        function toggleNotifications() {
+            const panel = document.getElementById('notificationsPanel');
+            panel.classList.toggle('active');
+        }
+
+        function markAsRead(notificationId) {
+            const notification = notifications.find(n => n.id === notificationId);
+            if (notification) {
+                notification.read = true;
+                updateNotificationUI();
+            }
+        }
+
+        function markAllAsRead() {
+            notifications.forEach(n => n.read = true);
+            updateNotificationUI();
+        }
+
+        function clearNotifications() {
+            notifications = [];
+            updateNotificationUI();
+            document.getElementById('notificationLog').innerHTML = '<p style="color: #666; text-align: center;">في انتظار الإشعارات...</p>';
+        }
+
+        // دوال المحاكاة
+        function simulateTaskAssignment() {
+            const mockNotification = {
+                type: 'NEW_TASK_ASSIGNED',
+                message: 'لقد تم تعيينك لمهمة جديدة: "تطوير واجهة المستخدم"',
+                data: {
+                    taskId: '123',
+                    taskTitle: 'تطوير واجهة المستخدم',
+                    project: 'مشروع التجارة الإلكترونية',
+                    priority: 'high'
+                },
+                timestamp: new Date()
+            };
+            handleNewNotification(mockNotification);
+        }
+
+        function simulateStatusChange() {
+            const mockNotification = {
+                type: 'TASK_STATUS_UPDATED',
+                message: 'تم تغيير حالة المهمة "تصميم الشعار" إلى قيد التنفيذ',
+                data: {
+                    taskId: '456',
+                    taskTitle: 'تصميم الشعار',
+                    oldStatus: 'pending',
+                    newStatus: 'in-progress'
+                },
+                timestamp: new Date()
+            };
+            handleNewNotification(mockNotification);
+        }
+
+        function simulateImportantNote() {
+            const mockNotification = {
+                type: 'IMPORTANT_NOTE_ADDED',
+                message: 'تمت إضافة ملاحظة هامة للمهمة "اختبار الأداء"',
+                data: {
+                    taskId: '789',
+                    taskTitle: 'اختبار الأداء',
+                    noteContent: 'يجب إكمال الاختبار قبل نهاية الأسبوع'
+                },
+                timestamp: new Date()
+            };
+            handleNewNotification(mockNotification);
+        }
+
+        // إغلاق لوحة الإشعارات عند النقر خارجها
+        document.addEventListener('click', (e) => {
+            const panel = document.getElementById('notificationsPanel');
+            const bell = document.querySelector('.notification-bell');
+            
+            if (!panel.contains(e.target) && !bell.contains(e.target)) {
+                panel.classList.remove('active');
+            }
+        });
+
+        // تهيئة التطبيق
+        document.addEventListener('DOMContentLoaded', () => {
+            initSocket();
+        });
+    </script>
+</body>
+</html>

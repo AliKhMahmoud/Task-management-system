@@ -3,6 +3,8 @@ const Project = require("../models/Project");
 const { USER_ROLES } = require("../utils/constants");
 const User = require("../models/User");
 const Note = require("../models/Note");
+const { sendNotification } = require("../utils/socket");
+const NotificationService = require("../services/notification.service");
 class TaskController {
 
 
@@ -202,6 +204,17 @@ class TaskController {
         }
         });
 
+        // Send notification to assigned user
+        await NotificationService.createAndSend(task.assignedTo, "NEW_TASK_ASSIGNED", {
+            message: `You have been assigned a new task: "${task.title}"`,
+            taskId: task._id,
+            taskTitle: task.title,
+            project: projectExists.name,
+            dueDate: task.dueDate,
+            priority: task.priority,
+            assignedBy: req.user.name || req.user.username
+        });
+
 
         res.status(201).json({
             success: true,
@@ -222,17 +235,13 @@ class TaskController {
             throw new Error("Task not found");
         }
 
-        const previousTaskState = {
-            ...task._doc
-        };
-
+        const previousTaskState = { ...task._doc };
         let allowedUpdates = {};
         let logAction = "";
         let logMetadata = {};
 
         if (role === USER_ROLES.MANAGER) {
-            const validFields = ['title', 'description', 'project', 'assignedTo', 
-                                'dueDate', 'priority', 'status', 'tags'];
+            const validFields = ['title', 'description', 'project', 'assignedTo', 'dueDate', 'priority', 'status', 'tags'];
             
             Object.keys(updates).forEach(key => {
                 if (validFields.includes(key)) {
@@ -242,111 +251,66 @@ class TaskController {
 
             const changedFields = Object.keys(allowedUpdates);
             const changes = {};
-            
             changedFields.forEach(field => {
-                changes[field] = {
-                    from: previousTaskState[field],
-                    to: allowedUpdates[field]
-                };
+                changes[field] = { from: previousTaskState[field], to: allowedUpdates[field] };
             });
 
             logAction = "TASK_UPDATE";
-            logMetadata = {
-                byRole: role,
-                changedFields: changedFields,
-                changes: changes,
-                updatedBy: id
-            };
+            logMetadata = { byRole: role, changedFields, changes, updatedBy: id };
 
             if (allowedUpdates.project) {
                 const projectExists = await Project.findById(allowedUpdates.project);
-                if (!projectExists) {
-                    res.status(404);
-                    throw new Error("Project not found");
-                }
-                logMetadata.projectChanged = true;
+                if (!projectExists) { throw new Error("Project not found"); }
             }
 
             if (allowedUpdates.assignedTo) {
                 const userExists = await User.findById(allowedUpdates.assignedTo);
-                if (!userExists) {
-                    res.status(404);
-                    throw new Error("Assigned user not found");
-                }
-                logMetadata.assignedToChanged = true;
-                logMetadata.newAssignee = allowedUpdates.assignedTo;
-            }
+                if (!userExists) { throw new Error("Assigned user not found"); }
 
-        } else {
-            const userIdFromToken = (req.user._id || req.user.id).toString();
-            const taskAssignedId = task.assignedTo ? task.assignedTo.toString() : null;
-            const isAssignedTo = taskAssignedId === userIdFromToken;
-            
+                if (!previousTaskState.assignedTo || previousTaskState.assignedTo.toString() !== allowedUpdates.assignedTo.toString()) {
+                    await NotificationService.createAndSend(allowedUpdates.assignedTo, "TASK_REASSIGNED", {
+                        message: `You have been assigned to task: "${task.title}"`,
+                        taskId: task._id,
+                        assignedBy: req.user.name || req.user.username
+                    });
+                }
+            }
+        } 
+        else {
+            const isAssignedTo = task.assignedTo && task.assignedTo.toString() === id.toString();
             if (!isAssignedTo) {
-                return res.status(403).json({ 
-                    success: false, 
-                    error: "You can only update tasks assigned to you" 
-                });
+                res.status(403);
+                throw new Error("You can only update tasks assigned to you");
             }
 
             if (updates.status && Object.keys(updates).length === 1) {
                 allowedUpdates.status = updates.status;
-                
                 logAction = "TASK_STATUS_UPDATE";
-                logMetadata = {
-                    byRole: role,
-                    previousStatus: previousTaskState.status,
-                    newStatus: updates.status,
-                    updatedBy: id,
-                    taskId: taskId
-                };
+                logMetadata = { previousStatus: previousTaskState.status, newStatus: updates.status, updatedBy: id };
+
+                const project = await Project.findById(task.project);
+                if (project && project.manager) {
+                    await NotificationService.createAndSend(project.manager, "TASK_STATUS_UPDATED", {
+                        message: `Task "${task.title}" status changed to ${updates.status}`,
+                        taskId: task._id,
+                        updatedBy: req.user.name || req.user.username
+                    });
+                }
             } else {
                 res.status(403);
                 throw new Error("Team members can only update task status");
             }
         }
 
-        // ===== Secure application for updates =====
-        Object.keys(allowedUpdates).forEach(key => {
-            task[key] = allowedUpdates[key];
-        });
-
+        Object.keys(allowedUpdates).forEach(key => { task[key] = allowedUpdates[key]; });
         await task.save();
 
-        // ===== Activity Logging =====
         if (logAction && res.logActivity) {
-            try {
-                await res.logActivity({
-                    action: logAction,
-                    entityType: "Task",
-                    entityId: task._id,
-                    userId: id,
-                    userRole: role,
-                    timestamp: new Date(),
-                    metadata: logMetadata,
-                    ipAddress: req.ip,
-                    userAgent: req.get('User-Agent')
-                });
-            } catch (logError) {
-                console.error("Failed to log activity:", logError);
-            }
+            await res.logActivity({ action: logAction, entityType: "Task", entityId: task._id, userId: id, metadata: logMetadata });
         }
 
-        // ===== Preparing Response =====
         const updatedTask = await Task.findById(task._id)
-            .populate({
-                path: "project",
-                select: "name description status"
-            })
-            .populate({
-                path: "assignedTo",
-                select: "name email avatar role"
-            })
-            .populate({
-                path: "assignedBy",
-                select: "name email avatar role"
-            })
-            .lean();
+            .populate("project assignedTo assignedBy").lean();
 
         const now = new Date();
         const dueDate = updatedTask.dueDate ? new Date(updatedTask.dueDate) : null;
@@ -361,8 +325,7 @@ class TaskController {
             success: true,
             message: "Task updated successfully",
             data: formattedTask,
-            activityLogged: !!logAction,
-            changes: logMetadata.changedFields || [updates.status ? 'status' : null].filter(Boolean)
+            activityLogged: !!logAction
         });
     }
     
