@@ -2,7 +2,6 @@
 const express = require("express");
 const projectController = require("../controllers/projects.controller");
 const asyncHandler = require("../utils/asyncHandler");
-const { apiLimiter } = require("../middlewares/rateLimit.middleware");
 const { requireAuth, authorize } = require("../middlewares/auth.middleware"); 
 const { USER_ROLES } = require('../utils/constants'); 
 const { createProjectByManagerValidator, getAllProjectsValidator,
@@ -77,5 +76,13 @@ router.delete("/:id/members/:memberId",
   ], 
   asyncHandler(projectController.removeMemberByManager)
 );
+
+router.get("/:projectId/report",
+  [
+    authorize(USER_ROLES.MANAGER)
+  ],
+  asyncHandler(projectController.generateProjectReport)
+);
+
 
 module.exports = router;

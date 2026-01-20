@@ -4,7 +4,7 @@ const { USER_ROLES } = require("../utils/constants");
 
 class NoteController {
 
-   async getAllNotes(req,res){
+    async getAllNotes(req,res){
         const { role, id } = req.user;
         const filter = {};
 
@@ -29,31 +29,30 @@ class NoteController {
             }
         }
 
-       const notes = await Note.find(filter)
-        .populate({
-            path: "task",
-            select: "title status dueDate",
-            populate: {
-                path: "assignedTo",
-                select: "name email"
-            }
-        })
-        .populate({
-            path: "createdBy",
-            select: "name email role",
-            match: { isActive: true } 
-        })
-        .sort({ createdAt: -1 })
-        .lean();
+        const notes = await Note.find(filter)
+            .populate({
+                path: "task",
+                select: "title status dueDate",
+                populate: {
+                    path: "assignedTo",
+                    select: "name email"
+                }
+            })
+            .populate({
+                path: "createdBy",
+                select: "name email role",
+                match: { isActive: true } 
+            })
+            .sort({ createdAt: -1 })
+            .lean();
 
-        return res.status(200).json({
-            success: true,
-            count: notes.length,
-            data: notes
-        });
+            return res.status(200).json({
+                success: true,
+                count: notes.length,
+                data: notes
+            });
     }
 
- 
 
     async createNote(req,res){
         const { content, task, isImportant } = req.body;
@@ -122,6 +121,7 @@ class NoteController {
             data: note
         });
     }
+
     async updateNote(req,res){
         const note = await Note.findById(req.params.id);
         if (!note) {
@@ -168,6 +168,7 @@ class NoteController {
             data: note
         });
     }
+
     async deleteNote(req,res){
         const note = await Note.findById(req.params.id);
         if (!note) {

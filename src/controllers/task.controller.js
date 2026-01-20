@@ -182,10 +182,10 @@ class TaskController {
             priority,
             status
         });
-         const populatedTask = await Task.findById(task._id)
-         .populate("project", "name description")
-         .populate("assignedTo", "username email name avatar")
-         .populate("assignedBy", "username email name avatar")
+        const populatedTask = await Task.findById(task._id)
+        .populate("project", "name description")
+        .populate("assignedTo", "username email name avatar")
+        .populate("assignedBy", "username email name avatar")
         .lean();
 
         // Activity Log
@@ -222,18 +222,15 @@ class TaskController {
             throw new Error("Task not found");
         }
 
-        // حفظ الحقول قبل التحديث لتسجيل التغييرات
         const previousTaskState = {
             ...task._doc
         };
 
-        // ===== Setting up allowed updates =====
         let allowedUpdates = {};
         let logAction = "";
         let logMetadata = {};
 
         if (role === USER_ROLES.MANAGER) {
-            // The manager controls all fields
             const validFields = ['title', 'description', 'project', 'assignedTo', 
                                 'dueDate', 'priority', 'status', 'tags'];
             
@@ -243,7 +240,6 @@ class TaskController {
                 }
             });
 
-            // تسجيل الحقول التي تم تغييرها
             const changedFields = Object.keys(allowedUpdates);
             const changes = {};
             
@@ -262,7 +258,6 @@ class TaskController {
                 updatedBy: id
             };
 
-            //Check if the project is still active and has been updated
             if (allowedUpdates.project) {
                 const projectExists = await Project.findById(allowedUpdates.project);
                 if (!projectExists) {
@@ -272,7 +267,6 @@ class TaskController {
                 logMetadata.projectChanged = true;
             }
 
-            // Check if the user is still active after the update
             if (allowedUpdates.assignedTo) {
                 const userExists = await User.findById(allowedUpdates.assignedTo);
                 if (!userExists) {
@@ -286,7 +280,6 @@ class TaskController {
         } else {
             const userIdFromToken = (req.user._id || req.user.id).toString();
             const taskAssignedId = task.assignedTo ? task.assignedTo.toString() : null;
-            // The team member controls the situation only
             const isAssignedTo = taskAssignedId === userIdFromToken;
             
             if (!isAssignedTo) {
@@ -336,7 +329,6 @@ class TaskController {
                 });
             } catch (logError) {
                 console.error("Failed to log activity:", logError);
-                // لا نوقف العملية إذا فشل التسجيل
             }
         }
 

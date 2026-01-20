@@ -8,7 +8,6 @@ const noteController = require("../controllers/notes.controller");
 const router = express.Router();
 
 router.use(requireAuth);
-router.use(apiLimiter);
 
 router.get('/',
     asyncHandler(noteController.getAllNotes)

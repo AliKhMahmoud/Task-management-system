@@ -1,6 +1,7 @@
 const Project = require("../models/Project");
 const Task = require("../models/Task")
 const { USER_ROLES } = require('../utils/constants'); 
+const PDFDocument = require('pdfkit');
 
 
 class ProjectController {
@@ -297,6 +298,47 @@ class ProjectController {
       message: "Member removed successfully",
       data: project
     });
+  }
+  async generateProjectReport (req, res) {
+
+    const { projectId } = req.params;
+    const project = await Project.findById(projectId);
+    if (!project) {
+        res.status(404);
+        throw new Error("Project not found");
+    }
+
+    const tasks = await Task.find({ project: projectId }).populate('assignedTo', 'name');
+
+    const doc = new PDFDocument({ margin: 50 });
+    
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=Report-${project.name}.pdf`);
+
+    doc.pipe(res);
+
+    doc.fillColor('#2563EB').fontSize(26).text('Project Status Report', { align: 'center' });
+    doc.moveDown();
+    
+    doc.strokeColor('#dddddd').moveTo(50, 110).lineTo(550, 110).stroke();
+    doc.moveDown();
+
+    doc.fillColor('#111827').fontSize(18).text(`Project: ${project.name}`);
+    doc.fontSize(12).fillColor('#64749A').text(`Description: ${project.description}`);
+    doc.moveDown();
+
+    doc.fillColor('#111827').fontSize(16).text('Tasks Overview:', { underline: true });
+    doc.moveDown(0.5);
+
+    tasks.forEach((task, index) => {
+        doc.fontSize(12).fillColor('#374151')
+          .text(`${index + 1}. ${task.title}`, { continued: true })
+          .fillColor('#6b7280').text(`  - Assigned to: ${task.assignedTo?.name || 'Unassigned'}`, { continued: true })
+          .fillColor(task.status === 'Completed' ? '#10b981' : '#f59e0b').text(` [${task.status}]`);
+        doc.moveDown(0.5);
+    });
+
+    doc.end();
   }
 }
 
